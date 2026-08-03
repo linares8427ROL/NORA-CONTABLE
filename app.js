@@ -570,6 +570,7 @@ async function deleteCard(id) {
 
 // Voice Recognition - Conversational Flow
 let voiceState = null;
+let voiceRecognition = null;
 
 function startVoice() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -582,11 +583,13 @@ function startVoice() {
   }
 
   voiceState = { step: 'desc', data: {} };
+  showToast('Paso 1: ¿Qué compraste?');
   speak('¿Qué compraste?');
-  listenStep();
+  setTimeout(listenStep, 600);
 }
 
 function speak(text) {
+  speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'es-MX';
   utterance.rate = 0.95;
@@ -595,51 +598,67 @@ function speak(text) {
 
 function listenStep() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recognition = new SpeechRecognition();
-  recognition.lang = 'es-MX';
-  recognition.interimResults = false;
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'es-MX';
+  voiceRecognition.interimResults = false;
 
   const btn = document.getElementById('btnVoice');
   btn.classList.add('listening');
 
-  recognition.onresult = (event) => {
+  voiceRecognition.onresult = (event) => {
     const text = event.results[0][0].transcript.toLowerCase().trim();
     btn.classList.remove('listening');
     handleVoiceAnswer(text);
   };
 
-  recognition.onerror = () => {
+  voiceRecognition.onerror = (e) => {
     btn.classList.remove('listening');
-    showToast('No se pudo reconocer. Intenta de nuevo.');
-    voiceState = null;
+    if (e.error === 'no-speech' || e.error === 'aborted') {
+      showToast('No se escuchó nada. Intentá de nuevo.');
+      speak('No te escuché. Intentá de nuevo.');
+      setTimeout(listenStep, 1200);
+    } else {
+      showToast('Error de voz. Intentá de nuevo.');
+      voiceState = null;
+    }
   };
 
-  recognition.onend = () => btn.classList.remove('listening');
-  recognition.start();
+  voiceRecognition.onend = () => {
+    if (voiceState) btn.classList.remove('listening');
+  };
+  voiceRecognition.start();
 }
 
 function handleVoiceAnswer(text) {
   if (!voiceState) return;
 
+  if (text.includes('cancelar') || text.includes('salir') || text.includes('parar')) {
+    speak('Voz cancelada.');
+    voiceState = null;
+    return;
+  }
+
   switch (voiceState.step) {
     case 'desc':
       voiceState.data.desc = text;
-      speak('¿Cuánto costó?');
       voiceState.step = 'amount';
-      listenStep();
+      showToast('Paso 2: ¿Cuánto costó?');
+      speak('¿Cuánto costó?');
+      setTimeout(listenStep, 600);
       break;
 
     case 'amount': {
       const amountMatch = text.match(/(\d+(?:\.\d+)?)/);
       if (!amountMatch) {
-        speak('No entendí el monto. Repítelo, por favor.');
-        listenStep();
+        speak('No entendí el monto. Decí un número.');
+        setTimeout(listenStep, 1200);
         return;
       }
       voiceState.data.amount = parseFloat(amountMatch[1]);
-      speak('¿Categoría? Alimentación, transporte, entretenimiento, salud, servicios, ropa u otro.');
       voiceState.step = 'category';
-      listenStep();
+      showToast('Paso 3: ¿Categoría?');
+      speak('¿Categoría? Alimentación, transporte, entretenimiento, salud, servicios, ropa u otro.');
+      setTimeout(listenStep, 600);
       break;
     }
 
@@ -647,9 +666,10 @@ function handleVoiceAnswer(text) {
       const cats = ['alimentación', 'transporte', 'entretenimiento', 'salud', 'servicios', 'ropa', 'otro'];
       const found = cats.find(c => text.includes(c));
       voiceState.data.category = found || 'otro';
-      speak('¿Fue contado o a meses sin intereses?');
       voiceState.step = 'type';
-      listenStep();
+      showToast('Paso 4: ¿Contado o MSI?');
+      speak('¿Fue contado o a meses sin intereses?');
+      setTimeout(listenStep, 600);
       break;
     }
 
@@ -657,9 +677,10 @@ function handleVoiceAnswer(text) {
       const isMsi = text.includes('meses') || text.includes('msi') || text.includes('sin intereses');
       voiceState.data.type = isMsi ? 'msi' : 'normal';
       if (isMsi) {
-        speak('¿A cuántos meses?');
         voiceState.step = 'installments';
-        listenStep();
+        showToast('Paso 5: ¿Cuántos meses?');
+        speak('¿A cuántos meses?');
+        setTimeout(listenStep, 600);
       } else {
         finishVoiceExpense();
       }
@@ -687,8 +708,9 @@ function finishVoiceExpense() {
     syncExpenseFormType();
     document.getElementById('expenseInstallments').value = String(installments);
   }
-  speak(`Listo. ${desc}, ${formatCurrency(amount)}, ${category}${type === 'msi' ? ', ' + installments + ' meses' : ''}.`);
-  showToast(`Gasto cargado: ${desc} - ${formatCurrency(amount)}`);
+  const summary = `${desc}, ${formatCurrency(amount)}, ${category}${type === 'msi' ? ', ' + installments + ' meses' : ''}. ¿Guardar?`;
+  speak(summary);
+  showToast('Revisá los datos y tocá Guardar');
   voiceState = null;
 }
 
