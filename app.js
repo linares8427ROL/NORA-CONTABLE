@@ -31,9 +31,51 @@ let editingCardId = null;
 async function init() {
   await db.init();
   cutoffDay = (await db.getSetting('cutoffDay')) || 15;
+  await loadTheme();
   await loadData();
   setupEventListeners();
   renderHome();
+}
+
+async function loadTheme() {
+  const theme = await db.getSetting('theme') || 'auto';
+  applyTheme(theme);
+  document.getElementById('themeSelect').value = theme;
+  updateThemeIcons(theme);
+}
+
+function applyTheme(theme) {
+  if (theme === 'auto') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
+
+function updateThemeIcons(theme) {
+  const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.getElementById('iconSun').style.display = isDark ? 'none' : 'block';
+  document.getElementById('iconMoon').style.display = isDark ? 'block' : 'none';
+}
+
+async function saveTheme() {
+  const theme = document.getElementById('themeSelect').value;
+  await db.setSetting('theme', theme);
+  applyTheme(theme);
+  updateThemeIcons(theme);
+  showToast('Tema guardado');
+}
+
+function cycleTheme() {
+  const select = document.getElementById('themeSelect');
+  const themes = ['dark', 'light', 'auto'];
+  const idx = themes.indexOf(select.value);
+  const next = themes[(idx + 1) % themes.length];
+  select.value = next;
+  applyTheme(next);
+  updateThemeIcons(next);
+  db.setSetting('theme', next);
 }
 
 async function loadData() {
@@ -566,6 +608,65 @@ async function deleteCard(id) {
     renderHome();
     showToast('Tarjeta eliminada');
   }
+}
+
+function setupEventListeners() {
+  // Nav
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
+  });
+
+  // Home
+  document.getElementById('btnAddExpense').addEventListener('click', () => openExpenseForm());
+  document.getElementById('btnHomeAddCard').addEventListener('click', () => openCardForm());
+  document.getElementById('cardFilter').addEventListener('change', () => {
+    renderHome();
+  });
+  document.getElementById('btnTheme').addEventListener('click', cycleTheme);
+
+  // Expense Form
+  document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+  document.getElementById('btnCancelExpense').addEventListener('click', () => navigateTo('home'));
+  document.getElementById('expenseType').addEventListener('change', syncExpenseFormType);
+
+  // Card Form
+  document.getElementById('btnAddCard').addEventListener('click', () => openCardForm());
+  document.getElementById('cardForm').addEventListener('submit', saveCard);
+  document.getElementById('btnCancelCard').addEventListener('click', closeCardModal);
+
+  // History
+  document.getElementById('searchInput').addEventListener('input', renderHistory);
+  document.getElementById('filterMonth').addEventListener('change', renderHistory);
+  document.getElementById('filterCategory').addEventListener('change', renderHistory);
+
+  // Settings
+  document.getElementById('btnSaveCutoff').addEventListener('click', async () => {
+    cutoffDay = parseInt(document.getElementById('cutoffDay').value);
+    await db.setSetting('cutoffDay', cutoffDay);
+    showToast('Fecha de corte guardada');
+    renderHome();
+  });
+
+  document.getElementById('btnSaveTheme').addEventListener('click', saveTheme);
+
+  document.getElementById('themeSelect').addEventListener('change', (e) => {
+    applyTheme(e.target.value);
+    updateThemeIcons(e.target.value);
+  });
+
+  if ('matchMedia' in window) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      const theme = document.getElementById('themeSelect').value;
+      if (theme === 'auto') {
+        applyTheme('auto');
+        updateThemeIcons('auto');
+      }
+    });
+  }
+
+  document.getElementById('btnExport').addEventListener('click', exportData);
+  document.getElementById('btnImport').addEventListener('click', importData);
+  document.getElementById('btnClearAll').addEventListener('click', clearAllData);
 }
 
 // Register SW

@@ -5,20 +5,42 @@
 }
 
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
+  --bg-primary: #0a0a14;
+  --bg-secondary: #141428;
+  --bg-card: #1c1c38;
   --accent: #e94560;
   --accent-hover: #ff6b81;
-  --text-primary: #eee;
-  --text-secondary: #aaa;
-  --text-muted: #666;
+  --text-primary: #e8e8f0;
+  --text-secondary: #9999bb;
+  --text-muted: #555577;
   --success: #2ecc71;
   --warning: #f39c12;
   --danger: #e74c3c;
   --border: #2a2a4a;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+  --radius: 12px;
+  --radius-sm: 8px;
   --nav-height: 60px;
   --header-height: 56px;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f0f0f5;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --accent: #e94560;
+  --accent-hover: #c0392b;
+  --text-primary: #1a1a2e;
+  --text-secondary: #555577;
+  --text-muted: #8888aa;
+  --success: #27ae60;
+  --warning: #e67e22;
+  --danger: #c0392b;
+  --border: #e0e0e8;
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 body {
@@ -28,6 +50,7 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition), color var(--transition);
 }
 
 #app {
@@ -75,6 +98,25 @@ header h1 {
 
 header h1:hover {
   transform: scale(1.05);
+}
+
+#btnTheme {
+  color: var(--text-secondary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: none;
+  border: none;
+}
+
+#btnTheme:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 /* Main */
@@ -941,6 +983,7 @@ main {
 .settings-group:nth-child(1) { animation-delay: 0.1s; }
 .settings-group:nth-child(2) { animation-delay: 0.2s; }
 .settings-group:nth-child(3) { animation-delay: 0.3s; }
+.settings-group:nth-child(4) { animation-delay: 0.4s; }
 
 .settings-group:hover {
   transform: translateY(-2px);
@@ -962,6 +1005,24 @@ main {
   font-size: 0.85rem;
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
+}
+
+#themeSelect {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  transition: all var(--transition);
+}
+
+#themeSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.15);
 }
 
 /* Form */
