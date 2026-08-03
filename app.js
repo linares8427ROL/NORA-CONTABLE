@@ -37,46 +37,17 @@ async function init() {
 }
 
 async function loadData() {
-  expenses = await db.getExpenses();
+  expenses = (await db.getExpenses()).map(normalizeExpense);
   cards = await db.getCards();
 }
 
-// Cycle calculation
+// Credit card logic (all derived from movements, nothing manual)
 function getCardCutoff(cardId) {
   if (cardId && cardId !== 'all') {
     const card = cards.find(c => c.id == cardId);
     if (card && card.cutoffDay) return parseInt(card.cutoffDay);
   }
   return cutoffDay;
-}
-
-function getCycleDates(cardId = 'all') {
-  const now = new Date();
-  const day = now.getDate();
-  const cut = getCardCutoff(cardId);
-  let start, end;
-
-  if (day >= cut) {
-    start = new Date(now.getFullYear(), now.getMonth(), cut);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, cut - 1);
-  } else {
-    start = new Date(now.getFullYear(), now.getMonth() - 1, cut);
-    end = new Date(now.getFullYear(), now.getMonth(), cut - 1);
-  }
-
-  return { start, end };
-}
-
-function getCycleTotal(cardId = 'all') {
-  const { start, end } = getCycleDates(cardId);
-  return expenses
-    .filter(e => {
-      const d = parseDate(e.date);
-      const inCycle = d >= start && d <= end;
-      const matchCard = cardId === 'all' || e.cardId == cardId;
-      return inCycle && matchCard;
-    })
-    .reduce((sum, e) => sum + parseFloat(e.amount), 0);
 }
 
 function getNextDueDate(cardId) {
@@ -89,6 +60,44 @@ function getNextDueDate(cardId) {
     dueDate = new Date(now.getFullYear(), now.getMonth() + 1, due);
   }
   return dueDate;
+}
+
+function normalizeExpense(e) {
+  if (!e.type) e.type = 'normal';
+  if (e.paid === undefined) e.paid = false;
+  if (e.paidInstallments === undefined) e.paidInstallments = 0;
+  return e;
+}
+
+function msiMonthly(e) {
+  return e.installments > 0 ? e.amount / e.installments : 0;
+}
+
+function msiRemaining(e) {
+  return Math.max(0, (e.installments || 0) - (e.paidInstallments || 0));
+}
+
+function isNormalPending(e) {
+  return e.type !== 'msi' && !e.paid;
+}
+
+function isMsiActive(e) {
+  return e.type === 'msi' && msiRemaining(e) > 0;
+}
+
+function cardStats(cardId) {
+  const list = cardId === 'all' ? expenses : expenses.filter(e => e.cardId == cardId);
+  const normalPending = list.filter(isNormalPending);
+  const msiActive = list.filter(isMsiActive);
+  const usedNormal = normalPending.reduce((s, e) => s + parseFloat(e.amount), 0);
+  const usedMsi = msiActive.reduce((s, e) => s + (parseFloat(e.amount) - (e.paidInstallments || 0) * msiMonthly(e)), 0);
+  const used = usedNormal + usedMsi;
+  const limit = cardId === 'all'
+    ? cards.reduce((s, c) => s + (parseFloat(c.creditLimit) || 0), 0)
+    : (parseFloat(cards.find(c => c.id == cardId)?.creditLimit) || 0);
+  const available = Math.max(0, limit - used);
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  return { used, limit, available, pct, normalPending, msiActive, usedNormal, usedMsi };
 }
 
 function parseDate(dateStr) {
@@ -110,7 +119,8 @@ function navigateTo(screen) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screen + 'Screen').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`[data-screen="${screen}"]`).classList.add('active');
+  const navBtn = document.querySelector(`[data-screen="${screen}"]`);
+  if (navBtn) navBtn.classList.add('active');
   currentScreen = screen;
 
   if (screen === 'home') renderHome();
@@ -122,74 +132,143 @@ function navigateTo(screen) {
 // Render Home
 function renderHome() {
   const filter = document.getElementById('cardFilter');
-  const cardId = filter.value || 'all';
-
-  const total = getCycleTotal(cardId);
-  const { start, end } = getCycleDates(cardId);
-  document.getElementById('totalCiclo').textContent = formatCurrency(total);
-  document.getElementById('cicloInfo').textContent = 
-    `${start.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
-
-  // Card filter
   const currentVal = filter.value;
   filter.innerHTML = '<option value="all">Todas las tarjetas</option>';
   cards.forEach(c => {
-    filter.innerHTML += `<option value="${c.id}">${c.name}${c.lastDigits ? ' •••• ' + c.lastDigits : ''}</option>`;
+    filter.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)}${c.lastDigits ? ' •••• ' + c.lastDigits : ''}</option>`;
   });
-  filter.value = currentVal || 'all';
+  filter.value = cards.some(c => c.id == currentVal) ? currentVal : (cards.length === 1 ? String(cards[0].id) : 'all');
 
-  // Credit info (per card)
-  const creditInfo = document.getElementById('creditInfo');
-  const card = cards.find(c => c.id == cardId);
-  if (card && card.creditLimit) {
-    const limit = parseFloat(card.creditLimit);
-    const available = Math.max(0, limit - total);
-    const pct = Math.min(100, (total / limit) * 100);
-
-    document.getElementById('creditLimit').textContent = formatCurrency(limit);
-    document.getElementById('creditAvailable').textContent = formatCurrency(available);
-    document.getElementById('creditAvailable').classList.toggle('low', pct >= 80);
-    document.getElementById('creditProgress').style.width = pct + '%';
-    document.getElementById('creditProgress').classList.toggle('danger', pct >= 90);
-
-    const dueDate = getNextDueDate(cardId);
-    document.getElementById('dueInfo').textContent = dueDate
-      ? `Límite de pago: ${dueDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`
-      : '';
-    creditInfo.classList.remove('hidden');
-  } else {
-    creditInfo.classList.add('hidden');
-  }
-
-  // Recent expenses
-  const recent = [...expenses]
-    .sort((a, b) => parseDate(b.date) - parseDate(a.date))
-    .slice(0, 10);
-
-  const container = document.getElementById('recentExpenses');
-  if (recent.length === 0) {
-    container.innerHTML = '<p class="empty-state">Sin gastos recientes</p>';
+  const homeEmpty = document.getElementById('homeEmpty');
+  const dashboard = document.getElementById('homeDashboard');
+  if (cards.length === 0) {
+    homeEmpty.style.display = 'block';
+    dashboard.style.display = 'none';
     return;
   }
+  homeEmpty.style.display = 'none';
+  dashboard.style.display = 'block';
 
-  container.innerHTML = recent.map(e => expenseHTML(e)).join('');
+  const cardId = filter.value || 'all';
+  const stats = cardStats(cardId);
+
+  document.getElementById('usedAmount').textContent = formatCurrency(stats.used);
+  document.getElementById('limitAmount').textContent = formatCurrency(stats.limit);
+  const availEl = document.getElementById('availableAmount');
+  availEl.textContent = formatCurrency(stats.available);
+  availEl.classList.toggle('low', stats.pct >= 80);
+  const bar = document.getElementById('utilizationBar');
+  bar.style.width = stats.pct + '%';
+  bar.classList.toggle('danger', stats.pct >= 90);
+
+  const dates = [];
+  const cut = getCardCutoff(cardId);
+  if (cut) dates.push(`Corte: día ${cut}`);
+  const due = getNextDueDate(cardId);
+  if (due) dates.push(`Límite de pago: ${due.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`);
+  document.getElementById('datesInfo').textContent = dates.join('  ·  ');
+
+  const pendingSection = document.getElementById('pendingSection');
+  const pendingList = document.getElementById('pendingList');
+  if (stats.normalPending.length === 0) {
+    pendingSection.style.display = 'none';
+  } else {
+    pendingSection.style.display = 'block';
+    pendingList.innerHTML = stats.normalPending
+      .sort((a, b) => parseDate(b.date) - parseDate(a.date))
+      .map(e => pendingItemHTML(e)).join('');
+  }
+
+  const msiSection = document.getElementById('msiSection');
+  const msiList = document.getElementById('msiList');
+  if (stats.msiActive.length === 0) {
+    msiSection.style.display = 'none';
+  } else {
+    msiSection.style.display = 'block';
+    msiList.innerHTML = stats.msiActive
+      .sort((a, b) => parseDate(b.date) - parseDate(a.date))
+      .map(e => msiItemHTML(e)).join('');
+  }
 }
 
-function expenseHTML(e) {
+function pendingItemHTML(e) {
   const card = cards.find(c => c.id == e.cardId);
   const icon = CATEGORY_ICONS[e.category] || CATEGORY_ICONS.general;
   const catColor = CATEGORY_COLORS[e.category] || CATEGORY_COLORS.general;
+  const cardName = card ? card.name : 'N/A';
+  return `
+    <div class="expense-item pending-item" style="border-left-color: ${card ? card.color : '#e94560'}">
+      <div class="expense-icon" style="background: ${catColor}20; border: 1.5px solid ${catColor}">
+        <img src="${icon}" width="18" height="18" style="filter: brightness(0) invert(1)">
+      </div>
+      <div class="expense-details">
+        <div class="expense-desc">${escapeHtml(e.description)}</div>
+        <div class="expense-meta">${escapeHtml(cardName)} · ${formatDate(e.date)}${e.merchant ? ' · ' + escapeHtml(e.merchant) : ''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span class="expense-amount">${formatCurrency(parseFloat(e.amount))}</span>
+        <button class="btn-pay" onclick="markPurchasePaid(${e.id})">Pagar</button>
+        <div class="expense-actions">
+          <button class="btn-icon" onclick="editExpense(${e.id})"><img src="icons/edit.svg" width="18" height="18"></button>
+          <button class="btn-icon delete" onclick="deleteExpense(${e.id})"><img src="icons/trash.svg" width="18" height="18"></button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function msiItemHTML(e) {
+  const card = cards.find(c => c.id == e.cardId);
+  const cardName = card ? card.name : 'N/A';
+  const monthly = msiMonthly(e);
+  const paid = e.paidInstallments || 0;
+  const remaining = msiRemaining(e);
+  const pct = Math.min(100, (paid / e.installments) * 100);
+  const due = getNextDueDate(e.cardId);
+  const nextLabel = due ? due.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '—';
+  return `
+    <div class="msi-item" style="border-left-color: ${card ? card.color : '#e94560'}">
+      <div class="msi-header">
+        <div class="msi-desc">${escapeHtml(e.description)}<span class="badge msi-badge">MSI ${e.installments}</span></div>
+        <div class="msi-meta">${escapeHtml(cardName)} · ${formatDate(e.date)}${e.merchant ? ' · ' + escapeHtml(e.merchant) : ''}</div>
+      </div>
+      <div class="msi-info-grid">
+        <div><span>Monto original</span><b>${formatCurrency(parseFloat(e.amount))}</b></div>
+        <div><span>Mensualidad</span><b>${formatCurrency(monthly)}</b></div>
+        <div><span>Meses pagados</span><b>${paid} / ${e.installments}</b></div>
+        <div><span>Faltan</span><b>${remaining}</b></div>
+      </div>
+      <div class="msi-progress"><div class="msi-progress-fill" style="width:${pct}%"></div></div>
+      <div class="msi-footer">
+        <span class="msi-next">Próximo pago: ${nextLabel}</span>
+        <button class="btn-pay" onclick="payMsiInstallment(${e.id})">Pagar mensualidad</button>
+      </div>
+    </div>`;
+}
+
+function historyItemHTML(e) {
+  const card = cards.find(c => c.id == e.cardId);
+  const icon = CATEGORY_ICONS[e.category] || CATEGORY_ICONS.general;
+  const catColor = CATEGORY_COLORS[e.category] || CATEGORY_COLORS.general;
+  const isMsi = e.type === 'msi';
+  const paid = isMsi ? (e.paidInstallments || 0) >= (e.installments || 0) : e.paid;
+  const badge = isMsi
+    ? `<span class="badge msi-badge">MSI · ${e.paidInstallments || 0}/${e.installments}</span>`
+    : `<span class="badge ${paid ? 'paid-badge' : 'pending-badge'}">${paid ? 'Pagada' : 'Pendiente'}</span>`;
+  const metaParts = [card ? card.name : 'N/A', formatDate(e.date)];
+  if (e.merchant) metaParts.push(e.merchant);
+  const sub = e.notes ? `<div class="expense-notes">${escapeHtml(e.notes)}</div>` : '';
   return `
     <div class="expense-item" style="border-left-color: ${card ? card.color : '#e94560'}">
       <div class="expense-icon" style="background: ${catColor}20; border: 1.5px solid ${catColor}">
         <img src="${icon}" width="18" height="18" style="filter: brightness(0) invert(1)">
       </div>
       <div class="expense-details">
-        <div class="expense-desc">${escapeHtml(e.description)}</div>
-        <div class="expense-meta">${card ? card.name : 'N/A'} · ${formatDate(e.date)}</div>
+        <div class="expense-desc">${escapeHtml(e.description)} ${badge}</div>
+        <div class="expense-meta">${escapeHtml(metaParts.join(' · '))}</div>
+        ${sub}
       </div>
       <div style="display:flex;align-items:center;gap:0.5rem">
-        <span class="expense-amount">${formatCurrency(parseFloat(e.amount))}</span>
+        <span class="expense-amount">${isMsi ? formatCurrency(msiMonthly(e)) + '<small class="amount-unit">/mes</small>' : formatCurrency(parseFloat(e.amount))}</span>
         <div class="expense-actions">
           <button class="btn-icon" onclick="editExpense(${e.id})"><img src="icons/edit.svg" width="18" height="18"></button>
           <button class="btn-icon delete" onclick="deleteExpense(${e.id})"><img src="icons/trash.svg" width="18" height="18"></button>
@@ -216,6 +295,7 @@ function renderHistory() {
   if (search) {
     filtered = filtered.filter(e => 
       e.description.toLowerCase().includes(search) ||
+      (e.merchant || '').toLowerCase().includes(search) ||
       (cards.find(c => c.id == e.cardId)?.name || '').toLowerCase().includes(search)
     );
   }
@@ -255,7 +335,7 @@ function renderHistory() {
         <span>${month}</span>
         <span>${formatCurrency(monthTotal)}</span>
       </div>`;
-    items.forEach(e => { html += expenseHTML(e); });
+    items.forEach(e => { html += historyItemHTML(e); });
     html += '</div>';
   }
 
@@ -282,9 +362,14 @@ function renderCards() {
   }
 
   container.innerHTML = cards.map(c => {
+    const stats = cardStats(c.id);
     const limitInfo = c.creditLimit ? `<span class="card-limit">Límite: ${formatCurrency(parseFloat(c.creditLimit))}</span>` : '';
     const cutInfo = c.cutoffDay ? ` · Corte: ${c.cutoffDay}` : '';
     const dueInfo = c.dueDay ? ` · Pago: ${c.dueDay}` : '';
+    const saldoInfo = `<div class="card-saldo">
+      <span>Usado: ${formatCurrency(stats.used)}</span>
+      <span>Disponible: ${formatCurrency(stats.available)}</span>
+    </div>`;
     return `
     <div class="card-item">
       <div class="card-color" style="background:${c.color}"></div>
@@ -292,6 +377,7 @@ function renderCards() {
         <h4>${escapeHtml(c.name)}</h4>
         <p>${c.lastDigits ? '•••• ' + c.lastDigits : 'Sin número'}${cutInfo}${dueInfo}</p>
         ${limitInfo}
+        ${saldoInfo}
       </div>
       <div class="card-actions">
         <button class="btn-icon" onclick="editCard(${c.id})"><img src="icons/edit.svg" width="18" height="18"></button>
@@ -308,19 +394,35 @@ function renderSettings() {
 }
 
 // Expense CRUD
+function syncExpenseFormType() {
+  const isMsi = document.getElementById('expenseType').value === 'msi';
+  document.getElementById('installmentsGroup').style.display = isMsi ? 'block' : 'none';
+  document.getElementById('expensePaidGroup').style.display = isMsi ? 'none' : 'block';
+  document.getElementById('installmentsPaidGroup').style.display = isMsi ? 'block' : 'none';
+}
+
 function openExpenseForm(expense = null) {
   editingExpenseId = expense ? expense.id : null;
   document.getElementById('expenseId').value = expense ? expense.id : '';
   document.getElementById('expenseDesc').value = expense ? expense.description : '';
+  document.getElementById('expenseMerchant').value = expense ? (expense.merchant || '') : '';
   document.getElementById('expenseAmount').value = expense ? expense.amount : '';
   document.getElementById('expenseDate').value = expense ? expense.date : new Date().toISOString().split('T')[0];
   document.getElementById('expenseCategory').value = expense ? expense.category : 'general';
+  document.getElementById('expenseNotes').value = expense ? (expense.notes || '') : '';
+
+  const type = expense && expense.type === 'msi' ? 'msi' : 'normal';
+  document.getElementById('expenseType').value = type;
+  document.getElementById('expenseInstallments').value = expense && expense.installments ? String(expense.installments) : '3';
+  document.getElementById('expenseInstallmentsPaid').value = expense ? (expense.paidInstallments || 0) : 0;
+  document.getElementById('expensePaid').checked = expense ? !!expense.paid : false;
+  syncExpenseFormType();
 
   // Populate cards
   const select = document.getElementById('expenseCard');
   select.innerHTML = '<option value="">Seleccionar tarjeta</option>';
   cards.forEach(c => {
-    select.innerHTML += `<option value="${c.id}">${c.name}${c.lastDigits ? ' •••• ' + c.lastDigits : ''}</option>`;
+    select.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)}${c.lastDigits ? ' •••• ' + c.lastDigits : ''}</option>`;
   });
   select.value = expense ? expense.cardId : (cards.length === 1 ? cards[0].id : '');
 
@@ -329,21 +431,39 @@ function openExpenseForm(expense = null) {
 
 async function saveExpense(e) {
   e.preventDefault();
+  const type = document.getElementById('expenseType').value;
   const data = {
     description: document.getElementById('expenseDesc').value.trim(),
+    merchant: document.getElementById('expenseMerchant').value.trim(),
     amount: parseFloat(document.getElementById('expenseAmount').value),
     cardId: parseInt(document.getElementById('expenseCard').value),
     date: document.getElementById('expenseDate').value,
-    category: document.getElementById('expenseCategory').value
+    category: document.getElementById('expenseCategory').value,
+    notes: document.getElementById('expenseNotes').value.trim(),
+    type
   };
+
+  if (type === 'msi') {
+    data.installments = parseInt(document.getElementById('expenseInstallments').value);
+    data.paidInstallments = Math.min(
+      parseInt(document.getElementById('expenseInstallmentsPaid').value) || 0,
+      data.installments
+    );
+    data.paid = data.paidInstallments >= data.installments;
+  } else {
+    const wasPaid = editingExpenseId ? (expenses.find(x => x.id === editingExpenseId)?.paid || false) : false;
+    data.paid = document.getElementById('expensePaid').checked;
+    data.paidDate = data.paid ? (wasPaid ? (expenses.find(x => x.id === editingExpenseId)?.paidDate || null) : new Date().toISOString().split('T')[0]) : null;
+    data.installments = null;
+  }
 
   if (editingExpenseId) {
     data.id = editingExpenseId;
     await db.updateExpense(data);
-    showToast('Gasto actualizado');
+    showToast('Compra actualizada');
   } else {
     await db.addExpense(data);
-    showToast('Gasto guardado');
+    showToast(type === 'msi' ? 'MSI registrado' : 'Compra guardada');
   }
 
   await loadData();
@@ -357,13 +477,35 @@ function editExpense(id) {
 }
 
 async function deleteExpense(id) {
-  if (confirm('¿Eliminar este gasto?')) {
+  if (confirm('¿Eliminar esta compra?')) {
     await db.deleteExpense(id);
     await loadData();
     if (currentScreen === 'home') renderHome();
     else if (currentScreen === 'history') renderHistory();
-    showToast('Gasto eliminado');
+    showToast('Compra eliminada');
   }
+}
+
+async function markPurchasePaid(id) {
+  const expense = expenses.find(e => e.id === id);
+  if (!expense) return;
+  expense.paid = true;
+  expense.paidDate = new Date().toISOString().split('T')[0];
+  await db.updateExpense(expense);
+  await loadData();
+  renderHome();
+  showToast('Compra marcada como pagada');
+}
+
+async function payMsiInstallment(id) {
+  const expense = expenses.find(e => e.id === id);
+  if (!expense) return;
+  expense.paidInstallments = (expense.paidInstallments || 0) + 1;
+  expense.paid = expense.paidInstallments >= (expense.installments || 0);
+  await db.updateExpense(expense);
+  await loadData();
+  renderHome();
+  showToast(expense.paid ? 'MSI pagado por completo' : 'Mensualidad pagada');
 }
 
 // Card CRUD
@@ -546,6 +688,7 @@ function setupEventListeners() {
   // Home
   document.getElementById('btnAddExpense').addEventListener('click', () => openExpenseForm());
   document.getElementById('btnVoice').addEventListener('click', startVoice);
+  document.getElementById('btnHomeAddCard').addEventListener('click', () => openCardForm());
   document.getElementById('cardFilter').addEventListener('change', () => {
     renderHome();
   });
@@ -553,6 +696,7 @@ function setupEventListeners() {
   // Expense Form
   document.getElementById('expenseForm').addEventListener('submit', saveExpense);
   document.getElementById('btnCancelExpense').addEventListener('click', () => navigateTo('home'));
+  document.getElementById('expenseType').addEventListener('change', syncExpenseFormType);
 
   // Card Form
   document.getElementById('btnAddCard').addEventListener('click', () => openCardForm());

@@ -22,41 +22,51 @@
     <main id="main">
       <!-- Home -->
       <section id="homeScreen" class="screen active">
-        <div class="summary-card">
-          <p class="summary-label">Gasto del ciclo</p>
-          <h2 id="totalCiclo" class="summary-amount">$0.00</h2>
-          <p id="cicloInfo" class="summary-info"></p>
-          <div id="creditInfo" class="credit-info hidden">
-            <div class="credit-row">
-              <span>Límite</span>
-              <span id="creditLimit" class="credit-value">$0</span>
-            </div>
-            <div class="credit-row">
-              <span>Disponible</span>
-              <span id="creditAvailable" class="credit-value">$0</span>
-            </div>
-            <div class="progress-bar">
-              <div id="creditProgress" class="progress-fill"></div>
-            </div>
-            <p id="dueInfo" class="due-info"></p>
+        <div id="homeEmpty" class="empty-state" style="display:none">
+          <p style="margin-bottom:1rem">Registra tu primera tarjeta para comenzar a controlar tu crédito.</p>
+          <button id="btnHomeAddCard" class="btn-primary btn-full">+ Nueva Tarjeta</button>
+        </div>
+        <div id="homeDashboard" style="display:none">
+          <div class="card-selector">
+            <select id="cardFilter">
+              <option value="all">Todas las tarjetas</option>
+            </select>
           </div>
-        </div>
-        <div class="card-selector">
-          <select id="cardFilter">
-            <option value="all">Todas las tarjetas</option>
-          </select>
-        </div>
-        <div class="quick-actions">
-          <button id="btnAddExpense" class="btn-primary">+ Agregar Gasto</button>
-          <button id="btnVoice" class="btn-voice" title="Hablar">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          </button>
-        </div>
-        <div id="recentExpenses" class="expense-list">
-          <p class="empty-state">Sin gastos recientes</p>
+          <div class="summary-card">
+            <p class="summary-label">Saldo utilizado</p>
+            <h2 id="usedAmount" class="summary-amount">$0.00</h2>
+            <div class="credit-info">
+              <div class="credit-row">
+                <span>Límite</span>
+                <span id="limitAmount" class="credit-value">$0</span>
+              </div>
+              <div class="credit-row">
+                <span>Crédito disponible</span>
+                <span id="availableAmount" class="credit-value">$0</span>
+              </div>
+              <div class="progress-bar">
+                <div id="utilizationBar" class="progress-fill"></div>
+              </div>
+              <p id="datesInfo" class="due-info"></p>
+            </div>
+          </div>
+          <div class="quick-actions">
+            <button id="btnAddExpense" class="btn-primary">+ Agregar Compra</button>
+            <button id="btnVoice" class="btn-voice" title="Hablar">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            </button>
+          </div>
+          <div id="pendingSection" class="list-section" style="display:none">
+            <h3 class="section-title">Compras normales pendientes</h3>
+            <div id="pendingList" class="expense-list"></div>
+          </div>
+          <div id="msiSection" class="list-section" style="display:none">
+            <h3 class="section-title">Compras a Meses Sin Intereses</h3>
+            <div id="msiList" class="msi-list"></div>
+          </div>
         </div>
       </section>
 
@@ -65,12 +75,33 @@
         <form id="expenseForm">
           <input type="hidden" id="expenseId">
           <div class="form-group">
+            <label for="expenseType">Tipo de compra</label>
+            <select id="expenseType">
+              <option value="normal">Pago de contado</option>
+              <option value="msi">A meses sin intereses (MSI)</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label for="expenseDesc">Descripción</label>
             <input type="text" id="expenseDesc" placeholder="Ej: Super, Gasolina..." required>
           </div>
           <div class="form-group">
-            <label for="expenseAmount">Monto</label>
+            <label for="expenseMerchant">Comercio (opcional)</label>
+            <input type="text" id="expenseMerchant" placeholder="Ej: Walmart, OXXO...">
+          </div>
+          <div class="form-group">
+            <label for="expenseAmount">Monto total</label>
             <input type="number" id="expenseAmount" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+          <div class="form-group" id="installmentsGroup" style="display:none">
+            <label for="expenseInstallments">Número de meses</label>
+            <select id="expenseInstallments">
+              <option value="3">3 meses</option>
+              <option value="6">6 meses</option>
+              <option value="9">9 meses</option>
+              <option value="12">12 meses</option>
+              <option value="18">18 meses</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="expenseCard">Tarjeta</label>
@@ -79,7 +110,7 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="expenseDate">Fecha</label>
+            <label for="expenseDate">Fecha de compra</label>
             <input type="date" id="expenseDate" required>
           </div>
           <div class="form-group">
@@ -94,6 +125,20 @@
               <option value="ropa">Ropa</option>
               <option value="otro">Otro</option>
             </select>
+          </div>
+          <div class="form-group">
+            <label for="expenseNotes">Notas (opcional)</label>
+            <input type="text" id="expenseNotes" placeholder="Ej: Regalo de cumpleaños">
+          </div>
+          <div class="form-group" id="expensePaidGroup">
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+              <input type="checkbox" id="expensePaid" style="width:auto">
+              <span>Compra ya pagada</span>
+            </label>
+          </div>
+          <div class="form-group" id="installmentsPaidGroup" style="display:none">
+            <label for="expenseInstallmentsPaid">Mensualidades ya pagadas</label>
+            <input type="number" id="expenseInstallmentsPaid" min="0" step="1" placeholder="0">
           </div>
           <div class="form-actions">
             <button type="button" id="btnCancelExpense" class="btn-secondary">Cancelar</button>

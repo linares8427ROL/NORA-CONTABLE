@@ -304,6 +304,195 @@ main {
   font-weight: 600;
 }
 
+/* Purchase status & pay button */
+.btn-pay {
+  background: var(--success);
+  color: #fff;
+  border: none;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.btn-pay:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+}
+
+.btn-pay:active {
+  transform: scale(0.95);
+}
+
+.pending-item {
+  border-left-width: 4px;
+}
+
+/* List sections */
+.list-section {
+  margin-bottom: 1.25rem;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.4s ease;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.msi-badge {
+  background: rgba(155, 89, 182, 0.2);
+  color: #c39bd3;
+  border: 1px solid rgba(155, 89, 182, 0.4);
+}
+
+.paid-badge {
+  background: rgba(46, 204, 113, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(46, 204, 113, 0.4);
+}
+
+.pending-badge {
+  background: rgba(243, 156, 18, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(243, 156, 18, 0.4);
+}
+
+.expense-notes {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.amount-unit {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+/* MSI list */
+.msi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.msi-item {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 1rem;
+  border-left: 4px solid var(--accent);
+  animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.msi-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.msi-header {
+  margin-bottom: 0.6rem;
+}
+
+.msi-desc {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.msi-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.msi-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.msi-info-grid div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+}
+
+.msi-info-grid span {
+  color: var(--text-secondary);
+}
+
+.msi-info-grid b {
+  font-weight: 600;
+}
+
+.msi-progress {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+
+.msi-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9b59b6, #e94560);
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.msi-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.msi-next {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* Card saldo */
+.card-saldo {
+  display: flex;
+  gap: 1rem;
+  margin-top: 4px;
+  font-size: 0.78rem;
+}
+
+.card-saldo span:first-child {
+  color: var(--warning);
+}
+
+.card-saldo span:last-child {
+  color: var(--success);
+}
+
 /* Card Selector */
 .card-selector {
   margin-bottom: 1rem;
