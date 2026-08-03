@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generador de Iconos Nora</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #1a1a2e; color: white; }
+    canvas { border: 1px solid #333; margin: 1rem; }
+    button { padding: 1rem 2rem; background: #e94560; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    button:hover { background: #ff6b81; }
+  </style>
+</head>
+<body>
+  <h1>Generador de Iconos Nora</h1>
+  <p>Haz clic en el botón para generar y descargar los iconos:</p>
+  <button onclick="generateIcons()">Generar Iconos</button>
+  <div id="preview"></div>
+  <script>
+    function generateIcons() {
+      const sizes = [192, 512];
+      const preview = document.getElementById('preview');
+      preview.innerHTML = '';
+      
+      sizes.forEach(size => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Background
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Circle
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = '#e94560';
+        ctx.fill();
+        
+        // Letter N
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${size * 0.3}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('N', size/2, size/2);
+        
+        preview.appendChild(canvas);
+        
+        // Download
+        const link = document.createElement('a');
+        link.download = `icon-${size}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      });
+      
+      alert('Iconos generados. Colócalos en la carpeta icons/');
+    }
+  </script>
+</body>
+</html>

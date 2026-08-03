@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#e94560">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Nora Contable</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <h1 id="headerTitle">Nora</h1>
+      <div id="headerActions"></div>
+    </header>
+
+    <!-- Screens -->
+    <main id="main">
+      <!-- Home -->
+      <section id="homeScreen" class="screen active">
+        <div class="summary-card">
+          <p class="summary-label">Gasto del ciclo</p>
+          <h2 id="totalCiclo" class="summary-amount">$0.00</h2>
+          <p id="cicloInfo" class="summary-info"></p>
+        </div>
+        <div class="card-selector">
+          <select id="cardFilter">
+            <option value="all">Todas las tarjetas</option>
+          </select>
+        </div>
+        <div class="quick-actions">
+          <button id="btnAddExpense" class="btn-primary">+ Agregar Gasto</button>
+          <button id="btnVoice" class="btn-voice" title="Hablar">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </button>
+        </div>
+        <div id="recentExpenses" class="expense-list">
+          <p class="empty-state">Sin gastos recientes</p>
+        </div>
+      </section>
+
+      <!-- Add/Edit Expense -->
+      <section id="expenseScreen" class="screen">
+        <form id="expenseForm">
+          <input type="hidden" id="expenseId">
+          <div class="form-group">
+            <label for="expenseDesc">Descripción</label>
+            <input type="text" id="expenseDesc" placeholder="Ej: Super, Gasolina..." required>
+          </div>
+          <div class="form-group">
+            <label for="expenseAmount">Monto</label>
+            <input type="number" id="expenseAmount" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label for="expenseCard">Tarjeta</label>
+            <select id="expenseCard" required>
+              <option value="">Seleccionar tarjeta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expenseDate">Fecha</label>
+            <input type="date" id="expenseDate" required>
+          </div>
+          <div class="form-group">
+            <label for="expenseCategory">Categoría</label>
+            <select id="expenseCategory">
+              <option value="general">General</option>
+              <option value="alimentacion">Alimentación</option>
+              <option value="transporte">Transporte</option>
+              <option value="entretenimiento">Entretenimiento</option>
+              <option value="salud">Salud</option>
+              <option value="servicios">Servicios</option>
+              <option value="ropa">Ropa</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="btnCancelExpense" class="btn-secondary">Cancelar</button>
+            <button type="submit" class="btn-primary">Guardar</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- History -->
+      <section id="historyScreen" class="screen">
+        <div class="search-bar">
+          <input type="search" id="searchInput" placeholder="Buscar gastos...">
+        </div>
+        <div class="filter-bar">
+          <select id="filterMonth">
+            <option value="all">Todos los meses</option>
+          </select>
+          <select id="filterCategory">
+            <option value="all">Todas las categorías</option>
+            <option value="general">General</option>
+            <option value="alimentacion">Alimentación</option>
+            <option value="transporte">Transporte</option>
+            <option value="entretenimiento">Entretenimiento</option>
+            <option value="salud">Salud</option>
+            <option value="servicios">Servicios</option>
+            <option value="ropa">Ropa</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div id="historyList" class="expense-list">
+          <p class="empty-state">Sin gastos registrados</p>
+        </div>
+      </section>
+
+      <!-- Cards -->
+      <section id="cardsScreen" class="screen">
+        <button id="btnAddCard" class="btn-primary btn-full">+ Nueva Tarjeta</button>
+        <div id="cardsList" class="cards-list"></div>
+      </section>
+
+      <!-- Settings -->
+      <section id="settingsScreen" class="screen">
+        <div class="settings-group">
+          <h3>Fecha de corte</h3>
+          <div class="form-group">
+            <label for="cutoffDay">Día de corte</label>
+            <input type="number" id="cutoffDay" min="1" max="31" value="15">
+          </div>
+          <button id="btnSaveCutoff" class="btn-primary">Guardar</button>
+        </div>
+        <div class="settings-group">
+          <h3>Copia de seguridad</h3>
+          <p class="settings-info">Exporta todos tus datos a un archivo JSON</p>
+          <button id="btnExport" class="btn-secondary btn-full">Exportar datos</button>
+          <div class="form-group" style="margin-top:1rem">
+            <label for="importFile">Importar datos</label>
+            <input type="file" id="importFile" accept=".json">
+          </div>
+          <button id="btnImport" class="btn-secondary btn-full">Importar datos</button>
+        </div>
+        <div class="settings-group">
+          <h3>Danger Zone</h3>
+          <button id="btnClearAll" class="btn-danger btn-full">Borrar todos los datos</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Card Modal -->
+    <div id="cardModal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="cardModalTitle">Nueva Tarjeta</h3>
+        <form id="cardForm">
+          <input type="hidden" id="cardId">
+          <div class="form-group">
+            <label for="cardName">Nombre</label>
+            <input type="text" id="cardName" placeholder="Ej: Visa, Mastercard..." required>
+          </div>
+          <div class="form-group">
+            <label for="cardLastDigits">Últimos 4 dígitos</label>
+            <input type="text" id="cardLastDigits" maxlength="4" pattern="\d{4}" placeholder="1234">
+          </div>
+          <div class="form-group">
+            <label for="cardColor">Color</label>
+            <input type="color" id="cardColor" value="#e94560">
+          </div>
+          <div class="form-actions">
+            <button type="button" id="btnCancelCard" class="btn-secondary">Cancelar</button>
+            <button type="submit" class="btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav id="bottomNav">
+      <button class="nav-btn active" data-screen="home">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span>Inicio</span>
+      </button>
+      <button class="nav-btn" data-screen="history">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+        <span>Historial</span>
+      </button>
+      <button class="nav-btn" data-screen="cards">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.11-.9-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+        <span>Tarjetas</span>
+      </button>
+      <button class="nav-btn" data-screen="settings">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        <span>Ajustes</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
