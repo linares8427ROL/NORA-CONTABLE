@@ -50,15 +50,9 @@
               <p id="datesInfo" class="due-info"></p>
             </div>
           </div>
-          <div class="quick-actions">
-            <button id="btnAddExpense" class="btn-primary">+ Agregar Compra</button>
-            <button id="btnVoice" class="btn-voice" title="Hablar">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-            </button>
-          </div>
+           <div class="quick-actions">
+             <button id="btnAddExpense" class="btn-primary">+ Agregar Compra</button>
+           </div>
           <div id="pendingSection" class="list-section" style="display:none">
             <h3 class="section-title">Compras normales pendientes</h3>
             <div id="pendingList" class="expense-list"></div>
@@ -202,15 +196,6 @@
             <input type="file" id="importFile" accept=".json">
           </div>
           <button id="btnImport" class="btn-secondary btn-full">Importar datos</button>
-        </div>
-        <div class="settings-group">
-          <h3>Gemini AI (opcional)</h3>
-          <p class="settings-info">Activá el reconocimiento inteligente de voz. Pegá tu API key de Google Gemini.</p>
-          <div class="form-group">
-            <label for="geminiApiKey">API Key de Gemini</label>
-            <input type="password" id="geminiApiKey" placeholder="AIzaSy...">
-          </div>
-          <button id="btnSaveGemini" class="btn-primary btn-full">Guardar API Key</button>
         </div>
         <div class="settings-group">
           <h3>Danger Zone</h3>
