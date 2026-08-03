@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nora - Generador de Iconos PNG</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background: #0f0f1a; 
+      color: #eee; 
+      padding: 2rem; 
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #e94560; margin-bottom: 0.5rem; }
+    h2 { color: #e94560; margin: 2rem 0 1rem; font-size: 1.2rem; }
+    p { color: #aaa; margin-bottom: 1rem; line-height: 1.6; }
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .icon-card {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      border: 1px solid #2a2a4a;
+    }
+    .icon-card img {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 0.5rem;
+    }
+    .icon-card span {
+      display: block;
+      font-size: 0.7rem;
+      color: #888;
+      word-break: break-all;
+    }
+    button {
+      background: #e94560;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 0.5rem;
+    }
+    button:hover { background: #ff6b81; }
+    .preview {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 2rem;
+      text-align: center;
+      margin: 1.5rem 0;
+      border: 1px solid #2a2a4a;
+    }
+    .preview img {
+      max-width: 200px;
+      border-radius: 20px;
+    }
+    .instructions {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+    }
+    .instructions h3 { color: #e94560; margin-bottom: 0.5rem; }
+    .instructions ol { padding-left: 1.5rem; }
+    .instructions li { margin: 0.5rem 0; color: #ccc; }
+    code {
+      background: #0f0f1a;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #e94560;
+    }
+  </style>
+</head>
+<body>
+  <h1>Nora Contable</h1>
+  <p>Iconos estilo itshover (stroke-based, modernos y limpios)</p>
+
+  <div class="preview">
+    <img src="icons/icon-512.svg" alt="Nora App Icon">
+    <p style="margin-top:1rem">Icono principal de la app</p>
+  </div>
+
+  <button onclick="downloadAll()">Descargar todos los iconos SVG</button>
+  <button onclick="generatePNGs()">Generar PNGs para PWA</button>
+
+  <h2>Iconos de Navegación</h2>
+  <div class="icon-grid">
+    <div class="icon-card"><img src="icons/home.svg" alt="home"><span>home.svg</span></div>
+    <div class="icon-card"><img src="icons/clock.svg" alt="clock"><span>clock.svg</span></div>
+    <div class="icon-card"><img src="icons/credit-card.svg" alt="credit-card"><span>credit-card.svg</span></div>
+    <div class="icon-card"><img src="icons/settings.svg" alt="settings"><span>settings.svg</span></div>
+  </div>
+
+  <h2>Iconos de Acción</h2>
+  <div class="icon-grid">
+    <div class="icon-card"><img src="icons/mic.svg" alt="mic"><span>mic.svg</span></div>
+    <div class="icon-card"><img src="icons/plus.svg" alt="plus"><span>plus.svg</span></div>
+    <div class="icon-card"><img src="icons/search.svg" alt="search"><span>search.svg</span></div>
+    <div class="icon-card"><img src="icons/edit.svg" alt="edit"><span>edit.svg</span></div>
+    <div class="icon-card"><img src="icons/trash.svg" alt="trash"><span>trash.svg</span></div>
+    <div class="icon-card"><img src="icons/download.svg" alt="download"><span>download.svg</span></div>
+    <div class="icon-card"><img src="icons/upload.svg" alt="upload"><span>upload.svg</span></div>
+    <div class="icon-card"><img src="icons/filter.svg" alt="filter"><span>filter.svg</span></div>
+    <div class="icon-card"><img src="icons/calendar.svg" alt="calendar"><span>calendar.svg</span></div>
+    <div class="icon-card"><img src="icons/shield.svg" alt="shield"><span>shield.svg</span></div>
+    <div class="icon-card"><img src="icons/close.svg" alt="close"><span>close.svg</span></div>
+    <div class="icon-card"><img src="icons/check.svg" alt="check"><span>check.svg</span></div>
+  </div>
+
+  <h2>Iconos de Categorías</h2>
+  <div class="icon-grid">
+    <div class="icon-card"><img src="icons/cat-alimentacion.svg" alt="alimentacion"><span>alimentacion</span></div>
+    <div class="icon-card"><img src="icons/cat-transporte.svg" alt="transporte"><span>transporte</span></div>
+    <div class="icon-card"><img src="icons/cat-entretenimiento.svg" alt="entretenimiento"><span>entretenimiento</span></div>
+    <div class="icon-card"><img src="icons/cat-salud.svg" alt="salud"><span>salud</span></div>
+    <div class="icon-card"><img src="icons/cat-servicios.svg" alt="servicios"><span>servicios</span></div>
+    <div class="icon-card"><img src="icons/cat-ropa.svg" alt="ropa"><span>ropa</span></div>
+    <div class="icon-card"><img src="icons/cat-general.svg" alt="general"><span>general</span></div>
+    <div class="icon-card"><img src="icons/cat-otro.svg" alt="otro"><span>otro</span></div>
+  </div>
+
+  <div class="instructions">
+    <h3>Instrucciones de Instalación</h3>
+    <ol>
+      <li>Los iconos SVG están en la carpeta <code>icons/</code></li>
+      <li>Para instalar la app en Android:</li>
+      <li>Abre <code>index.html</code> en Chrome Android</li>
+      <li>Toca los 3 puntos (menú) → "Agregar a pantalla de inicio"</li>
+      <li>Confirma → ¡Nora se instala como app!</li>
+    </ol>
+  </div>
+
+  <script>
+    function downloadAll() {
+      const icons = [
+        'icon-192.svg', 'icon-512.svg',
+        'home.svg', 'clock.svg', 'credit-card.svg', 'settings.svg',
+        'mic.svg', 'plus.svg', 'search.svg', 'edit.svg', 'trash.svg',
+        'download.svg', 'upload.svg', 'filter.svg', 'calendar.svg', 'shield.svg',
+        'close.svg', 'check.svg', 'alert-triangle.svg',
+        'cat-alimentacion.svg', 'cat-transporte.svg', 'cat-entretenimiento.svg',
+        'cat-salud.svg', 'cat-servicios.svg', 'cat-ropa.svg',
+        'cat-general.svg', 'cat-otro.svg'
+      ];
+      
+      icons.forEach(name => {
+        const link = document.createElement('a');
+        link.href = `icons/${name}`;
+        link.download = name;
+        link.click();
+      });
+      
+      alert('Descargando todos los iconos SVG...');
+    }
+
+    async function generatePNGs() {
+      const sizes = [192, 512];
+      
+      for (const size of sizes) {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, size, size);
+        gradient.addColorStop(0, '#e94560');
+        gradient.addColorStop(1, '#c0392b');
+        ctx.fillStyle = gradient;
+        
+        // Rounded rectangle
+        const radius = size * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(size - radius, 0);
+        ctx.quadraticCurveTo(size, 0, size, radius);
+        ctx.lineTo(size, size - radius);
+        ctx.quadraticCurveTo(size, size, size - radius, size);
+        ctx.lineTo(radius, size);
+        ctx.quadraticCurveTo(0, size, 0, size - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Card shape
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = size * 0.015;
+        const cardX = size * 0.17;
+        const cardY = size * 0.3;
+        const cardW = size * 0.66;
+        const cardH = size * 0.43;
+        const cardR = size * 0.06;
+        
+        ctx.beginPath();
+        ctx.moveTo(cardX + cardR, cardY);
+        ctx.lineTo(cardX + cardW - cardR, cardY);
+        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR);
+        ctx.lineTo(cardX + cardW, cardY + cardH - cardR);
+        ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - cardR, cardY + cardH);
+        ctx.lineTo(cardX + cardR, cardY + cardH);
+        ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - cardR);
+        ctx.lineTo(cardX, cardY + cardR);
+        ctx.quadraticCurveTo(cardX, cardY, cardX + cardR, cardY);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Card line
+        ctx.beginPath();
+        ctx.moveTo(cardX, cardY + cardH * 0.35);
+        ctx.lineTo(cardX + cardW, cardY + cardH * 0.35);
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.stroke();
+        
+        // Text "NORA"
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${size * 0.17}px Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('NORA', size / 2, size * 0.18);
+        
+        // Download
+        const link = document.createElement('a');
+        link.download = `icon-${size}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+      
+      alert('PNGs generados: icon-192.png y icon-512.png');
+    }
+  </script>
+</body>
+</html>
