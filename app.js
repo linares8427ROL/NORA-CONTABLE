@@ -568,13 +568,32 @@ async function deleteCard(id) {
   }
 }
 
-// Voice Recognition
+// Voice Recognition - Conversational Flow
+let voiceState = null;
+
 function startVoice() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     showToast('Reconocimiento de voz no disponible');
     return;
   }
+  if (!('speechSynthesis' in window)) {
+    showToast('Síntesis de voz no disponible');
+    return;
+  }
 
+  voiceState = { step: 'desc', data: {} };
+  speak('¿Qué compraste?');
+  listenStep();
+}
+
+function speak(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'es-MX';
+  utterance.rate = 0.95;
+  speechSynthesis.speak(utterance);
+}
+
+function listenStep() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
   recognition.lang = 'es-MX';
@@ -584,39 +603,93 @@ function startVoice() {
   btn.classList.add('listening');
 
   recognition.onresult = (event) => {
-    const text = event.results[0][0].transcript.toLowerCase();
-    parseVoiceInput(text);
+    const text = event.results[0][0].transcript.toLowerCase().trim();
     btn.classList.remove('listening');
+    handleVoiceAnswer(text);
   };
 
   recognition.onerror = () => {
     btn.classList.remove('listening');
     showToast('No se pudo reconocer. Intenta de nuevo.');
+    voiceState = null;
   };
 
   recognition.onend = () => btn.classList.remove('listening');
   recognition.start();
 }
 
-function parseVoiceInput(text) {
-  // Try to extract amount
-  const amountMatch = text.match(/(\d+(?:\.\d+)?)/);
-  const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
+function handleVoiceAnswer(text) {
+  if (!voiceState) return;
 
-  // Clean description (remove numbers)
-  const desc = text.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
+  switch (voiceState.step) {
+    case 'desc':
+      voiceState.data.desc = text;
+      speak('¿Cuánto costó?');
+      voiceState.step = 'amount';
+      listenStep();
+      break;
 
-  if (amount) {
-    document.getElementById('expenseDesc').value = desc || 'Gasto por voz';
-    document.getElementById('expenseAmount').value = amount;
-    document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
-    openExpenseForm();
-    document.getElementById('expenseDesc').value = desc || 'Gasto por voz';
-    document.getElementById('expenseAmount').value = amount;
-    showToast(`Detectado: "${desc}" - ${formatCurrency(amount)}`);
-  } else {
-    showToast(`Escuché: "${text}". No detecté un monto.`);
+    case 'amount': {
+      const amountMatch = text.match(/(\d+(?:\.\d+)?)/);
+      if (!amountMatch) {
+        speak('No entendí el monto. Repítelo, por favor.');
+        listenStep();
+        return;
+      }
+      voiceState.data.amount = parseFloat(amountMatch[1]);
+      speak('¿Categoría? Alimentación, transporte, entretenimiento, salud, servicios, ropa u otro.');
+      voiceState.step = 'category';
+      listenStep();
+      break;
+    }
+
+    case 'category': {
+      const cats = ['alimentación', 'transporte', 'entretenimiento', 'salud', 'servicios', 'ropa', 'otro'];
+      const found = cats.find(c => text.includes(c));
+      voiceState.data.category = found || 'otro';
+      speak('¿Fue contado o a meses sin intereses?');
+      voiceState.step = 'type';
+      listenStep();
+      break;
+    }
+
+    case 'type': {
+      const isMsi = text.includes('meses') || text.includes('msi') || text.includes('sin intereses');
+      voiceState.data.type = isMsi ? 'msi' : 'normal';
+      if (isMsi) {
+        speak('¿A cuántos meses?');
+        voiceState.step = 'installments';
+        listenStep();
+      } else {
+        finishVoiceExpense();
+      }
+      break;
+    }
+
+    case 'installments': {
+      const m = text.match(/(\d+)/);
+      voiceState.data.installments = m ? Math.min(48, Math.max(2, parseInt(m[1]))) : 12;
+      finishVoiceExpense();
+      break;
+    }
   }
+}
+
+function finishVoiceExpense() {
+  const { desc, amount, category, type, installments } = voiceState.data;
+  openExpenseForm();
+  document.getElementById('expenseDesc').value = desc;
+  document.getElementById('expenseAmount').value = amount;
+  document.getElementById('expenseCategory').value = category;
+  document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+  if (type === 'msi') {
+    document.getElementById('expenseType').value = 'msi';
+    syncExpenseFormType();
+    document.getElementById('expenseInstallments').value = String(installments);
+  }
+  speak(`Listo. ${desc}, ${formatCurrency(amount)}, ${category}${type === 'msi' ? ', ' + installments + ' meses' : ''}.`);
+  showToast(`Gasto cargado: ${desc} - ${formatCurrency(amount)}`);
+  voiceState = null;
 }
 
 // Export/Import
