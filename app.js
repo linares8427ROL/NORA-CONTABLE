@@ -31,6 +31,7 @@ let editingCardId = null;
 async function init() {
   await db.init();
   cutoffDay = (await db.getSetting('cutoffDay')) || 15;
+  await loadGeminiKey();
   await loadData();
   setupEventListeners();
   renderHome();
@@ -568,6 +569,66 @@ async function deleteCard(id) {
   }
 }
 
+// Gemini AI
+let geminiApiKey = null;
+
+async function loadGeminiKey() {
+  geminiApiKey = await db.getSetting('geminiApiKey');
+}
+
+async function saveGeminiKey() {
+  const key = document.getElementById('geminiApiKey').value.trim();
+  if (!key) {
+    showToast('API Key vacía');
+    return;
+  }
+  await db.setSetting('geminiApiKey', key);
+  geminiApiKey = key;
+  showToast('API Key de Gemini guardada');
+}
+
+async function callGemini(text) {
+  if (!geminiApiKey) return null;
+
+  const prompt = `Eres un asistente financiero para una app de control de gastos con tarjeta de crédito. Analizá el siguiente texto en español y extraé los datos del gasto en formato JSON estricto. Respondé SOLO el JSON, sin texto adicional.
+
+Campos requeridos:
+- "description": string, descripción breve del gasto
+- "amount": number, el monto en pesos (solo el número, sin símbolo)
+- "category": string, una de: alimentacion, transporte, entretenimiento, salud, servicios, ropa, otro
+- "type": "normal" o "msi"
+- "installments": number (solo si type es "msi", sino omitirlo)
+
+Texto del usuario: "${text}"
+
+Respondé únicamente el JSON.`;
+
+  try {
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+      })
+    });
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const data = await resp.json();
+    const jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!jsonStr) throw new Error('Empty response');
+
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found');
+
+    return JSON.parse(jsonMatch[0]);
+  } catch (e) {
+    console.error('Gemini error:', e);
+    return null;
+  }
+}
+
 // Voice Recognition - Conversational Flow
 let voiceState = null;
 let voiceRecognition = null;
@@ -582,6 +643,57 @@ function startVoice() {
     return;
   }
 
+  if (geminiApiKey) {
+    startVoiceGemini();
+  } else {
+    startVoiceLocal();
+  }
+}
+
+function startVoiceGemini() {
+  speak('Decí el gasto. Por ejemplo: gasté 500 pesos en supermercado a 12 meses.');
+  setTimeout(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    voiceRecognition = new SpeechRecognition();
+    voiceRecognition.lang = 'es-MX';
+    voiceRecognition.interimResults = false;
+
+    const btn = document.getElementById('btnVoice');
+    btn.classList.add('listening');
+
+    voiceRecognition.onresult = async (event) => {
+      const text = event.results[0][0].transcript.toLowerCase().trim();
+      btn.classList.remove('listening');
+      showToast('Procesando con IA...');
+      const result = await callGemini(text);
+      if (result && result.description && result.amount) {
+        fillExpenseForm(result);
+        speak(`Cargado: ${result.description}, ${formatCurrency(result.amount)}${result.installments ? ', ' + result.installments + ' meses' : ''}.`);
+        showToast(`Gasto cargado: ${result.description}`);
+      } else {
+        speak('No entendí el gasto. Intentá de nuevo.');
+        showToast('No se pudo interpretar el gasto');
+      }
+    };
+
+    voiceRecognition.onerror = (e) => {
+      btn.classList.remove('listening');
+      if (e.error === 'no-speech' || e.error === 'aborted') {
+        showToast('No se escuchó nada');
+        speak('No te escuché. Intentá de nuevo.');
+        startVoiceGemini();
+      } else {
+        showToast('Error de voz');
+        voiceState = null;
+      }
+    };
+
+    voiceRecognition.onend = () => btn.classList.remove('listening');
+    voiceRecognition.start();
+  }, 600);
+}
+
+function startVoiceLocal() {
   voiceState = { step: 'desc', data: {} };
   showToast('Paso 1: ¿Qué compraste?');
   speak('¿Qué compraste?');
@@ -696,22 +808,20 @@ function handleVoiceAnswer(text) {
   }
 }
 
-function finishVoiceExpense() {
-  const { desc, amount, category, type, installments } = voiceState.data;
+function fillExpenseForm(result) {
   openExpenseForm();
-  document.getElementById('expenseDesc').value = desc;
-  document.getElementById('expenseAmount').value = amount;
-  document.getElementById('expenseCategory').value = category;
+  document.getElementById('expenseDesc').value = result.description || '';
+  document.getElementById('expenseAmount').value = result.amount || '';
+  document.getElementById('expenseCategory').value = result.category || 'otro';
   document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
-  if (type === 'msi') {
+  if (result.type === 'msi' && result.installments) {
     document.getElementById('expenseType').value = 'msi';
     syncExpenseFormType();
-    document.getElementById('expenseInstallments').value = String(installments);
+    document.getElementById('expenseInstallments').value = String(result.installments);
+  } else {
+    document.getElementById('expenseType').value = 'normal';
+    syncExpenseFormType();
   }
-  const summary = `${desc}, ${formatCurrency(amount)}, ${category}${type === 'msi' ? ', ' + installments + ' meses' : ''}. ¿Guardar?`;
-  speak(summary);
-  showToast('Revisá los datos y tocá Guardar');
-  voiceState = null;
 }
 
 // Export/Import
@@ -810,6 +920,8 @@ function setupEventListeners() {
     showToast('Fecha de corte guardada');
     renderHome();
   });
+
+  document.getElementById('btnSaveGemini').addEventListener('click', saveGeminiKey);
 
   document.getElementById('btnExport').addEventListener('click', exportData);
   document.getElementById('btnImport').addEventListener('click', importData);
