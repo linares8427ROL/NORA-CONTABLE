@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nora-v2';
+const CACHE_NAME = 'nora-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -54,7 +54,17 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (url.origin !== location.origin) return;
+  if (e.request.method !== 'GET') return;
+
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+    fetch(e.request)
+      .then(resp => {
+        const copy = resp.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
+        return resp;
+      })
+      .catch(() => caches.match(e.request))
   );
 });

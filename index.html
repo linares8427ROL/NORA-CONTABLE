@@ -26,6 +26,20 @@
           <p class="summary-label">Gasto del ciclo</p>
           <h2 id="totalCiclo" class="summary-amount">$0.00</h2>
           <p id="cicloInfo" class="summary-info"></p>
+          <div id="creditInfo" class="credit-info hidden">
+            <div class="credit-row">
+              <span>Límite</span>
+              <span id="creditLimit" class="credit-value">$0</span>
+            </div>
+            <div class="credit-row">
+              <span>Disponible</span>
+              <span id="creditAvailable" class="credit-value">$0</span>
+            </div>
+            <div class="progress-bar">
+              <div id="creditProgress" class="progress-fill"></div>
+            </div>
+            <p id="dueInfo" class="due-info"></p>
+          </div>
         </div>
         <div class="card-selector">
           <select id="cardFilter">
@@ -160,6 +174,20 @@
           <div class="form-group">
             <label for="cardLastDigits">Últimos 4 dígitos</label>
             <input type="text" id="cardLastDigits" maxlength="4" pattern="\d{4}" placeholder="1234">
+          </div>
+          <div class="form-group">
+            <label for="cardCreditLimit">Límite de crédito ($)</label>
+            <input type="number" id="cardCreditLimit" step="0.01" min="0" placeholder="Ej: 21300">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cardCutoffDay">Día de corte</label>
+              <input type="number" id="cardCutoffDay" min="1" max="31" placeholder="Ej: 3">
+            </div>
+            <div class="form-group">
+              <label for="cardDueDay">Día de pago</label>
+              <input type="number" id="cardDueDay" min="1" max="31" placeholder="Ej: 23">
+            </div>
           </div>
           <div class="form-group">
             <label for="cardColor">Color</label>

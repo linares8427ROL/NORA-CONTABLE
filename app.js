@@ -42,32 +42,58 @@ async function loadData() {
 }
 
 // Cycle calculation
-function getCycleDates() {
+function getCardCutoff(cardId) {
+  if (cardId && cardId !== 'all') {
+    const card = cards.find(c => c.id == cardId);
+    if (card && card.cutoffDay) return parseInt(card.cutoffDay);
+  }
+  return cutoffDay;
+}
+
+function getCycleDates(cardId = 'all') {
   const now = new Date();
   const day = now.getDate();
+  const cut = getCardCutoff(cardId);
   let start, end;
 
-  if (day >= cutoffDay) {
-    start = new Date(now.getFullYear(), now.getMonth(), cutoffDay);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, cutoffDay - 1);
+  if (day >= cut) {
+    start = new Date(now.getFullYear(), now.getMonth(), cut);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, cut - 1);
   } else {
-    start = new Date(now.getFullYear(), now.getMonth() - 1, cutoffDay);
-    end = new Date(now.getFullYear(), now.getMonth(), cutoffDay - 1);
+    start = new Date(now.getFullYear(), now.getMonth() - 1, cut);
+    end = new Date(now.getFullYear(), now.getMonth(), cut - 1);
   }
 
   return { start, end };
 }
 
 function getCycleTotal(cardId = 'all') {
-  const { start, end } = getCycleDates();
+  const { start, end } = getCycleDates(cardId);
   return expenses
     .filter(e => {
-      const d = new Date(e.date);
+      const d = parseDate(e.date);
       const inCycle = d >= start && d <= end;
       const matchCard = cardId === 'all' || e.cardId == cardId;
       return inCycle && matchCard;
     })
     .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+}
+
+function getNextDueDate(cardId) {
+  const card = cards.find(c => c.id == cardId);
+  const due = (card && card.dueDay) ? parseInt(card.dueDay) : null;
+  if (!due) return null;
+  const now = new Date();
+  let dueDate = new Date(now.getFullYear(), now.getMonth(), due);
+  if (dueDate < now) {
+    dueDate = new Date(now.getFullYear(), now.getMonth() + 1, due);
+  }
+  return dueDate;
+}
+
+function parseDate(dateStr) {
+  const parts = dateStr.split('-').map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
 function formatCurrency(n) {
@@ -95,14 +121,16 @@ function navigateTo(screen) {
 
 // Render Home
 function renderHome() {
-  const total = getCycleTotal();
-  const { start, end } = getCycleDates();
+  const filter = document.getElementById('cardFilter');
+  const cardId = filter.value || 'all';
+
+  const total = getCycleTotal(cardId);
+  const { start, end } = getCycleDates(cardId);
   document.getElementById('totalCiclo').textContent = formatCurrency(total);
   document.getElementById('cicloInfo').textContent = 
     `${start.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`;
 
   // Card filter
-  const filter = document.getElementById('cardFilter');
   const currentVal = filter.value;
   filter.innerHTML = '<option value="all">Todas las tarjetas</option>';
   cards.forEach(c => {
@@ -110,9 +138,32 @@ function renderHome() {
   });
   filter.value = currentVal || 'all';
 
+  // Credit info (per card)
+  const creditInfo = document.getElementById('creditInfo');
+  const card = cards.find(c => c.id == cardId);
+  if (card && card.creditLimit) {
+    const limit = parseFloat(card.creditLimit);
+    const available = Math.max(0, limit - total);
+    const pct = Math.min(100, (total / limit) * 100);
+
+    document.getElementById('creditLimit').textContent = formatCurrency(limit);
+    document.getElementById('creditAvailable').textContent = formatCurrency(available);
+    document.getElementById('creditAvailable').classList.toggle('low', pct >= 80);
+    document.getElementById('creditProgress').style.width = pct + '%';
+    document.getElementById('creditProgress').classList.toggle('danger', pct >= 90);
+
+    const dueDate = getNextDueDate(cardId);
+    document.getElementById('dueInfo').textContent = dueDate
+      ? `Límite de pago: ${dueDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`
+      : '';
+    creditInfo.classList.remove('hidden');
+  } else {
+    creditInfo.classList.add('hidden');
+  }
+
   // Recent expenses
   const recent = [...expenses]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .sort((a, b) => parseDate(b.date) - parseDate(a.date))
     .slice(0, 10);
 
   const container = document.getElementById('recentExpenses');
@@ -180,7 +231,7 @@ function renderHistory() {
     filtered = filtered.filter(e => e.category === category);
   }
 
-  filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+  filtered.sort((a, b) => parseDate(b.date) - parseDate(a.date));
 
   if (filtered.length === 0) {
     container.innerHTML = '<p class="empty-state">No se encontraron gastos</p>';
@@ -230,19 +281,25 @@ function renderCards() {
     return;
   }
 
-  container.innerHTML = cards.map(c => `
+  container.innerHTML = cards.map(c => {
+    const limitInfo = c.creditLimit ? `<span class="card-limit">Límite: ${formatCurrency(parseFloat(c.creditLimit))}</span>` : '';
+    const cutInfo = c.cutoffDay ? ` · Corte: ${c.cutoffDay}` : '';
+    const dueInfo = c.dueDay ? ` · Pago: ${c.dueDay}` : '';
+    return `
     <div class="card-item">
       <div class="card-color" style="background:${c.color}"></div>
       <div class="card-info">
         <h4>${escapeHtml(c.name)}</h4>
-        <p>${c.lastDigits ? '•••• ' + c.lastDigits : 'Sin número'}</p>
+        <p>${c.lastDigits ? '•••• ' + c.lastDigits : 'Sin número'}${cutInfo}${dueInfo}</p>
+        ${limitInfo}
       </div>
       <div class="card-actions">
         <button class="btn-icon" onclick="editCard(${c.id})"><img src="icons/edit.svg" width="18" height="18"></button>
         <button class="btn-icon delete" onclick="deleteCard(${c.id})"><img src="icons/trash.svg" width="18" height="18"></button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // Render Settings
@@ -316,6 +373,9 @@ function openCardForm(card = null) {
   document.getElementById('cardId').value = card ? card.id : '';
   document.getElementById('cardName').value = card ? card.name : '';
   document.getElementById('cardLastDigits').value = card ? card.lastDigits : '';
+  document.getElementById('cardCreditLimit').value = card && card.creditLimit ? card.creditLimit : '';
+  document.getElementById('cardCutoffDay').value = card && card.cutoffDay ? card.cutoffDay : '';
+  document.getElementById('cardDueDay').value = card && card.dueDay ? card.dueDay : '';
   document.getElementById('cardColor').value = card ? card.color : '#e94560';
   document.getElementById('cardModal').classList.remove('hidden');
 }
@@ -330,6 +390,9 @@ async function saveCard(e) {
   const data = {
     name: document.getElementById('cardName').value.trim(),
     lastDigits: document.getElementById('cardLastDigits').value,
+    creditLimit: document.getElementById('cardCreditLimit').value ? parseFloat(document.getElementById('cardCreditLimit').value) : null,
+    cutoffDay: document.getElementById('cardCutoffDay').value ? parseInt(document.getElementById('cardCutoffDay').value) : null,
+    dueDay: document.getElementById('cardDueDay').value ? parseInt(document.getElementById('cardDueDay').value) : null,
     color: document.getElementById('cardColor').value
   };
 
@@ -483,10 +546,8 @@ function setupEventListeners() {
   // Home
   document.getElementById('btnAddExpense').addEventListener('click', () => openExpenseForm());
   document.getElementById('btnVoice').addEventListener('click', startVoice);
-  document.getElementById('cardFilter').addEventListener('change', (e) => {
-    const cardId = e.target.value;
-    const total = getCycleTotal(cardId);
-    document.getElementById('totalCiclo').textContent = formatCurrency(total);
+  document.getElementById('cardFilter').addEventListener('change', () => {
+    renderHome();
   });
 
   // Expense Form
