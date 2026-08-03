@@ -1,0 +1,17 @@
+# System files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+
+# Generated files (optional - keep if you want)
+# generate-icons.html

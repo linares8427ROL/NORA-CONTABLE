@@ -1,12 +1,23 @@
 const CATEGORY_ICONS = {
-  alimentacion: '🛒',
-  transporte: '🚗',
-  entretenimiento: '🎬',
-  salud: '💊',
-  servicios: '📱',
-  ropa: '👕',
-  general: '💳',
-  otro: '📦'
+  alimentacion: 'icons/cat-alimentacion.svg',
+  transporte: 'icons/cat-transporte.svg',
+  entretenimiento: 'icons/cat-entretenimiento.svg',
+  salud: 'icons/cat-salud.svg',
+  servicios: 'icons/cat-servicios.svg',
+  ropa: 'icons/cat-ropa.svg',
+  general: 'icons/cat-general.svg',
+  otro: 'icons/cat-otro.svg'
+};
+
+const CATEGORY_COLORS = {
+  alimentacion: '#27ae60',
+  transporte: '#3498db',
+  entretenimiento: '#9b59b6',
+  salud: '#e74c3c',
+  servicios: '#f39c12',
+  ropa: '#1abc9c',
+  general: '#95a5a6',
+  otro: '#7f8c8d'
 };
 
 let currentScreen = 'home';
@@ -115,11 +126,13 @@ function renderHome() {
 
 function expenseHTML(e) {
   const card = cards.find(c => c.id == e.cardId);
-  const icon = CATEGORY_ICONS[e.category] || '💳';
-  const catClass = 'cat-' + (e.category || 'general');
+  const icon = CATEGORY_ICONS[e.category] || CATEGORY_ICONS.general;
+  const catColor = CATEGORY_COLORS[e.category] || CATEGORY_COLORS.general;
   return `
     <div class="expense-item" style="border-left-color: ${card ? card.color : '#e94560'}">
-      <div class="expense-icon ${catClass}">${icon}</div>
+      <div class="expense-icon" style="background: ${catColor}20; border: 1.5px solid ${catColor}">
+        <img src="${icon}" width="18" height="18" style="filter: brightness(0) invert(1)">
+      </div>
       <div class="expense-details">
         <div class="expense-desc">${escapeHtml(e.description)}</div>
         <div class="expense-meta">${card ? card.name : 'N/A'} · ${formatDate(e.date)}</div>
@@ -127,8 +140,8 @@ function expenseHTML(e) {
       <div style="display:flex;align-items:center;gap:0.5rem">
         <span class="expense-amount">${formatCurrency(parseFloat(e.amount))}</span>
         <div class="expense-actions">
-          <button class="btn-icon" onclick="editExpense(${e.id})">✏️</button>
-          <button class="btn-icon delete" onclick="deleteExpense(${e.id})">🗑️</button>
+          <button class="btn-icon" onclick="editExpense(${e.id})"><img src="icons/edit.svg" width="18" height="18"></button>
+          <button class="btn-icon delete" onclick="deleteExpense(${e.id})"><img src="icons/trash.svg" width="18" height="18"></button>
         </div>
       </div>
     </div>`;
@@ -225,8 +238,8 @@ function renderCards() {
         <p>${c.lastDigits ? '•••• ' + c.lastDigits : 'Sin número'}</p>
       </div>
       <div class="card-actions">
-        <button class="btn-icon" onclick="editCard(${c.id})">✏️</button>
-        <button class="btn-icon delete" onclick="deleteCard(${c.id})">🗑️</button>
+        <button class="btn-icon" onclick="editCard(${c.id})"><img src="icons/edit.svg" width="18" height="18"></button>
+        <button class="btn-icon delete" onclick="deleteCard(${c.id})"><img src="icons/trash.svg" width="18" height="18"></button>
       </div>
     </div>
   `).join('');
