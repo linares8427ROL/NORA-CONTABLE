@@ -608,6 +608,8 @@ async function markPurchasePaid(id) {
 async function payMsiInstallment(id) {
   const expense = expenses.find(e => e.id === id);
   if (!expense) return;
+  const monthly = msiMonthly(expense);
+  if (!confirm(`¿Pagar esta mensualidad de ${formatCurrency(monthly)}?`)) return;
   expense.paidInstallments = (expense.paidInstallments || 0) + 1;
   expense.paid = expense.paidInstallments >= (expense.installments || 0);
   await db.updateExpense(expense);
