@@ -29,12 +29,19 @@ let editingCardId = null;
 
 // Init
 async function init() {
-  await db.init();
-  cutoffDay = (await db.getSetting('cutoffDay')) || 15;
-  await loadTheme();
-  await loadData();
-  setupEventListeners();
-  renderHome();
+  try {
+    await db.init();
+    cutoffDay = (await db.getSetting('cutoffDay')) || 15;
+    await loadTheme();
+    await loadData();
+    setupEventListeners();
+    renderHome();
+  } catch (err) {
+    console.error('Init error:', err);
+    document.getElementById('homeEmpty').style.display = 'block';
+    document.getElementById('homeDashboard').style.display = 'none';
+    try { setupEventListeners(); } catch (_) {}
+  }
 }
 
 async function loadTheme() {
@@ -144,13 +151,12 @@ function cardStats(cardId) {
     const d = parseDate(e.date);
     return d >= cycleDates.start && d <= cycleDates.end;
   });
-  const cycleTotal = cycleExpenses.reduce((s, e) => {
-    if (e.type === 'msi') {
-      return s + msiMonthly(e);
-    }
-    return s + parseFloat(e.amount);
-  }, 0);
-  return { used, limit, available, pct, normalPending, msiActive, usedNormal, usedMsi, cycleTotal, cycleDates };
+  const normalCycleTotal = cycleExpenses
+    .filter(e => e.type !== 'msi')
+    .reduce((s, e) => s + parseFloat(e.amount), 0);
+  const msiCycleTotal = msiActive.reduce((s, e) => s + msiMonthly(e), 0);
+  const totalCycle = normalCycleTotal + msiCycleTotal;
+  return { used, limit, available, pct, normalPending, msiActive, usedNormal, usedMsi, cycleTotal: totalCycle, cycleDates };
 }
 
 function getCycleDates(cardId) {
@@ -509,44 +515,50 @@ function openExpenseForm(expense = null) {
 
 async function saveExpense(e) {
   e.preventDefault();
-  const type = document.getElementById('expenseType').value;
-  const data = {
-    description: document.getElementById('expenseDesc').value.trim(),
-    merchant: document.getElementById('expenseMerchant').value.trim(),
-    amount: parseFloat(document.getElementById('expenseAmount').value),
-    cardId: parseInt(document.getElementById('expenseCard').value),
-    date: document.getElementById('expenseDate').value,
-    category: document.getElementById('expenseCategory').value,
-    notes: document.getElementById('expenseNotes').value.trim(),
-    type
-  };
+  try {
+    const type = document.getElementById('expenseType').value;
+    const data = {
+      description: document.getElementById('expenseDesc').value.trim(),
+      merchant: document.getElementById('expenseMerchant').value.trim(),
+      amount: parseFloat(document.getElementById('expenseAmount').value),
+      cardId: parseInt(document.getElementById('expenseCard').value),
+      date: document.getElementById('expenseDate').value,
+      category: document.getElementById('expenseCategory').value,
+      notes: document.getElementById('expenseNotes').value.trim(),
+      type
+    };
 
-  if (type === 'msi') {
-    data.installments = parseInt(document.getElementById('expenseInstallments').value);
-    data.paidInstallments = Math.min(
-      parseInt(document.getElementById('expenseInstallmentsPaid').value) || 0,
-      data.installments
-    );
-    data.paid = data.paidInstallments >= data.installments;
-  } else {
-    const wasPaid = editingExpenseId ? (expenses.find(x => x.id === editingExpenseId)?.paid || false) : false;
-    data.paid = document.getElementById('expensePaid').checked;
-    data.paidDate = data.paid ? (wasPaid ? (expenses.find(x => x.id === editingExpenseId)?.paidDate || null) : new Date().toISOString().split('T')[0]) : null;
-    data.installments = null;
+    if (type === 'msi') {
+      data.installments = parseInt(document.getElementById('expenseInstallments').value);
+      data.paidInstallments = Math.min(
+        parseInt(document.getElementById('expenseInstallmentsPaid').value) || 0,
+        data.installments
+      );
+      data.paid = data.paidInstallments >= data.installments;
+    } else {
+      const wasPaid = editingExpenseId ? (expenses.find(x => x.id === editingExpenseId)?.paid || false) : false;
+      data.paid = document.getElementById('expensePaid').checked;
+      data.paidDate = data.paid ? (wasPaid ? (expenses.find(x => x.id === editingExpenseId)?.paidDate || null) : new Date().toISOString().split('T')[0]) : null;
+      data.installments = null;
+    }
+
+    if (editingExpenseId) {
+      data.id = editingExpenseId;
+      await db.updateExpense(data);
+      showToast('Compra actualizada');
+    } else {
+      await db.addExpense(data);
+      showToast(type === 'msi' ? 'MSI registrado' : 'Compra guardada');
+    }
+
+    editingExpenseId = null;
+    await loadData();
+    renderHome();
+    navigateTo('home');
+  } catch (err) {
+    console.error('Error guardando compra:', err);
+    showToast('Error al guardar');
   }
-
-  if (editingExpenseId) {
-    data.id = editingExpenseId;
-    await db.updateExpense(data);
-    showToast('Compra actualizada');
-  } else {
-    await db.addExpense(data);
-    showToast(type === 'msi' ? 'MSI registrado' : 'Compra guardada');
-  }
-
-  await loadData();
-  editingExpenseId = null;
-  navigateTo('home');
 }
 
 function editExpense(id) {
