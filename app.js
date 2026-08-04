@@ -722,5 +722,38 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
 
+// Export / Import / Clear
+async function exportData() {
+  const data = await db.exportAll();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'nora-backup-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Datos exportados');
+}
+
+async function importData() {
+  const file = document.getElementById('importFile').files[0];
+  if (!file) { showToast('Selecciona un archivo'); return; }
+  const text = await file.text();
+  const data = JSON.parse(text);
+  await db.importAll(data);
+  await loadData();
+  renderHome();
+  showToast('Datos importados');
+}
+
+async function clearAllData() {
+  if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
+  await db.clearAll();
+  expenses = [];
+  cards = [];
+  renderHome();
+  showToast('Datos eliminados');
+}
+
 // Start
 init();
