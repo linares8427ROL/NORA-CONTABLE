@@ -262,6 +262,27 @@ main {
   animation: countUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s backwards;
 }
 
+.total-to-pay {
+  background: rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0 0.5rem;
+  animation: fadeIn 0.5s ease 0.3s backwards;
+}
+
+.total-to-pay span {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin-bottom: 0.25rem;
+}
+
+.total-amount {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+
 @keyframes countUp {
   from {
     opacity: 0;

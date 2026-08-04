@@ -195,6 +195,7 @@ function renderHome() {
   const stats = cardStats(cardId);
 
   document.getElementById('usedAmount').textContent = formatCurrency(stats.used);
+  document.getElementById('totalToPay').textContent = formatCurrency(stats.used);
   document.getElementById('limitAmount').textContent = formatCurrency(stats.limit);
   const availEl = document.getElementById('availableAmount');
   availEl.textContent = formatCurrency(stats.available);
