@@ -361,6 +361,19 @@ function historyItemHTML(e) {
     </div>`;
 }
 
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -412,11 +425,11 @@ function renderHistory() {
   });
 
   let html = '';
-  for (const [month, items] of Object.entries(grouped)) {
+  for (const [groupKey, items] of Object.entries(grouped)) {
     const monthTotal = items.reduce((s, e) => s + parseFloat(e.amount), 0);
     html += `<div class="month-group">
       <div style="display:flex;justify-content:space-between;padding:0.5rem 0;color:var(--text-secondary);font-size:0.85rem">
-        <span>${month}</span>
+        <span>${groupKey}</span>
         <span>${formatCurrency(monthTotal)}</span>
       </div>`;
     items.forEach(e => { html += historyItemHTML(e); });
@@ -483,6 +496,7 @@ function syncExpenseFormType() {
   document.getElementById('installmentsGroup').style.display = isMsi ? 'block' : 'none';
   document.getElementById('expensePaidGroup').style.display = isMsi ? 'none' : 'block';
   document.getElementById('installmentsPaidGroup').style.display = isMsi ? 'block' : 'none';
+  document.getElementById('expenseInstallments').required = isMsi;
 }
 
 function openExpenseForm(expense = null) {
@@ -521,12 +535,17 @@ async function saveExpense(e) {
       description: document.getElementById('expenseDesc').value.trim(),
       merchant: document.getElementById('expenseMerchant').value.trim(),
       amount: parseFloat(document.getElementById('expenseAmount').value),
-      cardId: parseInt(document.getElementById('expenseCard').value),
+      cardId: document.getElementById('expenseCard').value ? parseInt(document.getElementById('expenseCard').value) : null,
       date: document.getElementById('expenseDate').value,
       category: document.getElementById('expenseCategory').value,
       notes: document.getElementById('expenseNotes').value.trim(),
       type
     };
+
+    if (!data.description || isNaN(data.amount) || data.amount <= 0 || !data.cardId) {
+      showToast('Completa todos los campos obligatorios');
+      return;
+    }
 
     if (type === 'msi') {
       data.installments = parseInt(document.getElementById('expenseInstallments').value);
@@ -553,7 +572,6 @@ async function saveExpense(e) {
 
     editingExpenseId = null;
     await loadData();
-    renderHome();
     navigateTo('home');
   } catch (err) {
     console.error('Error guardando compra:', err);
@@ -738,12 +756,21 @@ async function exportData() {
 async function importData() {
   const file = document.getElementById('importFile').files[0];
   if (!file) { showToast('Selecciona un archivo'); return; }
-  const text = await file.text();
-  const data = JSON.parse(text);
-  await db.importAll(data);
-  await loadData();
-  renderHome();
-  showToast('Datos importados');
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.expenses && !data.cards) {
+      showToast('Archivo no válido');
+      return;
+    }
+    await db.importAll(data);
+    await loadData();
+    renderHome();
+    showToast('Datos importados');
+  } catch (err) {
+    console.error('Import error:', err);
+    showToast('Error al importar');
+  }
 }
 
 async function clearAllData() {
