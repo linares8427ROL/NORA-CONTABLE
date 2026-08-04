@@ -144,7 +144,12 @@ function cardStats(cardId) {
     const d = parseDate(e.date);
     return d >= cycleDates.start && d <= cycleDates.end;
   });
-  const cycleTotal = cycleExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+  const cycleTotal = cycleExpenses.reduce((s, e) => {
+    if (e.type === 'msi') {
+      return s + msiMonthly(e);
+    }
+    return s + parseFloat(e.amount);
+  }, 0);
   return { used, limit, available, pct, normalPending, msiActive, usedNormal, usedMsi, cycleTotal, cycleDates };
 }
 
