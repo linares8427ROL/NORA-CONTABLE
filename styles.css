@@ -283,6 +283,14 @@ main {
   margin: 0;
 }
 
+[data-theme="light"] .total-to-pay {
+  background: rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .summary-card {
+  background: linear-gradient(135deg, var(--accent), #b03020);
+}
+
 @keyframes countUp {
   from {
     opacity: 0;

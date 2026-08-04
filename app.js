@@ -139,7 +139,32 @@ function cardStats(cardId) {
     : (parseFloat(cards.find(c => c.id == cardId)?.creditLimit) || 0);
   const available = Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-  return { used, limit, available, pct, normalPending, msiActive, usedNormal, usedMsi };
+  const cycleDates = getCycleDates(cardId);
+  const cycleExpenses = list.filter(e => {
+    const d = parseDate(e.date);
+    return d >= cycleDates.start && d <= cycleDates.end;
+  });
+  const cycleTotal = cycleExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+  return { used, limit, available, pct, normalPending, msiActive, usedNormal, usedMsi, cycleTotal, cycleDates };
+}
+
+function getCycleDates(cardId) {
+  const card = cardId === 'all' ? null : cards.find(c => c.id == cardId);
+  const cutoff = card && card.cutoffDay ? parseInt(card.cutoffDay) : cutoffDay;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const day = now.getDate();
+
+  let start, end;
+  if (day <= cutoff) {
+    start = new Date(year, month - 1, cutoff + 1);
+    end = new Date(year, month, cutoff);
+  } else {
+    start = new Date(year, month, cutoff + 1);
+    end = new Date(year, month + 1, cutoff);
+  }
+  return { start, end };
 }
 
 function parseDate(dateStr) {
@@ -195,7 +220,7 @@ function renderHome() {
   const stats = cardStats(cardId);
 
   document.getElementById('usedAmount').textContent = formatCurrency(stats.used);
-  document.getElementById('totalToPay').textContent = formatCurrency(stats.used);
+  document.getElementById('totalToPay').textContent = formatCurrency(stats.cycleTotal);
   document.getElementById('limitAmount').textContent = formatCurrency(stats.limit);
   const availEl = document.getElementById('availableAmount');
   availEl.textContent = formatCurrency(stats.available);
@@ -209,6 +234,11 @@ function renderHome() {
   if (cut) dates.push(`Corte: día ${cut}`);
   const due = getNextDueDate(cardId);
   if (due) dates.push(`Límite de pago: ${due.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`);
+  if (stats.cycleDates) {
+    const s = stats.cycleDates.start;
+    const e = stats.cycleDates.end;
+    dates.push(`${formatDate(s.toISOString().split('T')[0])} - ${formatDate(e.toISOString().split('T')[0])}`);
+  }
   document.getElementById('datesInfo').textContent = dates.join('  ·  ');
 
   const pendingSection = document.getElementById('pendingSection');
