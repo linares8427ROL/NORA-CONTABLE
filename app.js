@@ -281,7 +281,7 @@ function pendingItemHTML(e) {
   const catColor = CATEGORY_COLORS[e.category] || CATEGORY_COLORS.general;
   const cardName = card ? card.name : 'N/A';
   return `
-    <div class="expense-item pending-item" style="border-left-color: ${card ? card.color : '#e94560'}">
+    <div class="expense-item pending-item" style="border-left-color: ${card ? card.color : '#0A2540'}">
       <div class="expense-icon" style="background: ${catColor}20; border: 1.5px solid ${catColor}">
         <img src="${icon}" width="18" height="18" style="filter: brightness(0) invert(1)">
       </div>
@@ -310,7 +310,7 @@ function msiItemHTML(e) {
   const due = getNextDueDate(e.cardId);
   const nextLabel = due ? due.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '—';
   return `
-    <div class="msi-item" style="border-left-color: ${card ? card.color : '#e94560'}">
+    <div class="msi-item" style="border-left-color: ${card ? card.color : '#0A2540'}">
       <div class="msi-header">
         <div class="msi-desc">${escapeHtml(e.description)}<span class="badge msi-badge">MSI ${e.installments}</span></div>
         <div class="msi-meta">${escapeHtml(cardName)} · ${formatDate(e.date)}${e.merchant ? ' · ' + escapeHtml(e.merchant) : ''}</div>
@@ -342,7 +342,7 @@ function historyItemHTML(e) {
   if (e.merchant) metaParts.push(e.merchant);
   const sub = e.notes ? `<div class="expense-notes">${escapeHtml(e.notes)}</div>` : '';
   return `
-    <div class="expense-item" style="border-left-color: ${card ? card.color : '#e94560'}">
+    <div class="expense-item" style="border-left-color: ${card ? card.color : '#0A2540'}">
       <div class="expense-icon" style="background: ${catColor}20; border: 1.5px solid ${catColor}">
         <img src="${icon}" width="18" height="18" style="filter: brightness(0) invert(1)">
       </div>
@@ -626,7 +626,7 @@ function openCardForm(card = null) {
   document.getElementById('cardCreditLimit').value = card && card.creditLimit ? card.creditLimit : '';
   document.getElementById('cardCutoffDay').value = card && card.cutoffDay ? card.cutoffDay : '';
   document.getElementById('cardDueDay').value = card && card.dueDay ? card.dueDay : '';
-  document.getElementById('cardColor').value = card ? card.color : '#e94560';
+  document.getElementById('cardColor').value = card ? card.color : '#0A2540';
   document.getElementById('cardModal').classList.remove('hidden');
 }
 
@@ -691,7 +691,7 @@ function setupEventListeners() {
   document.getElementById('btnTheme').addEventListener('click', cycleTheme);
 
   // Expense Form
-  document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+  document.getElementById('btnSaveExpense').addEventListener('click', saveExpense);
   document.getElementById('btnCancelExpense').addEventListener('click', () => navigateTo('home'));
   document.getElementById('expenseType').addEventListener('change', syncExpenseFormType);
 
@@ -733,6 +733,15 @@ function setupEventListeners() {
   document.getElementById('btnExport').addEventListener('click', exportData);
   document.getElementById('btnImport').addEventListener('click', importData);
   document.getElementById('btnClearAll').addEventListener('click', clearAllData);
+
+  // Sync
+  document.getElementById('btnGenerateCode').addEventListener('click', generateSyncCode);
+  document.getElementById('btnCopyCode').addEventListener('click', () => {
+    const code = document.getElementById('syncCode');
+    code.select();
+    navigator.clipboard.writeText(code.value).then(() => showToast('Código copiado'));
+  });
+  document.getElementById('btnImportCode').addEventListener('click', importFromCode);
 }
 
 // Register SW
@@ -780,6 +789,55 @@ async function clearAllData() {
   cards = [];
   renderHome();
   showToast('Datos eliminados');
+}
+
+// Sync via code
+function generateSyncCode() {
+  const data = { expenses, cards, cutoffDay, syncDate: new Date().toISOString() };
+  const json = JSON.stringify(data);
+  const code = btoa(unescape(encodeURIComponent(json)));
+  document.getElementById('syncCode').value = code;
+  document.getElementById('syncCodeBox').style.display = 'block';
+  showToast('Código generado');
+}
+
+function importFromCode() {
+  const code = document.getElementById('importCode').value.trim();
+  if (!code) { showToast('Pega un código primero'); return; }
+  try {
+    const json = decodeURIComponent(escape(atob(code)));
+    const data = JSON.parse(json);
+    if (!data.expenses && !data.cards) {
+      showToast('Código no válido');
+      return;
+    }
+    if (!confirm('Esto reemplazará todos los datos actuales. ¿Continuar?')) return;
+    expenses = (data.expenses || []).map(normalizeExpense);
+    cards = data.cards || [];
+    if (data.cutoffDay) cutoffDay = data.cutoffDay;
+    const tx = db.db.transaction(['expenses', 'cards', 'settings'], 'readwrite');
+    const expStore = tx.objectStore('expenses');
+    const cardStore = tx.objectStore('cards');
+    const setStore = tx.objectStore('settings');
+    expStore.clear();
+    cardStore.clear();
+    expenses.forEach(e => {
+      const { id, ...rest } = e;
+      expStore.add(rest);
+    });
+    cards.forEach(c => {
+      const { id, ...rest } = c;
+      cardStore.add(rest);
+    });
+    setStore.put({ key: 'cutoffDay', value: cutoffDay });
+    tx.oncomplete = () => {
+      renderHome();
+      showToast('Datos sincronizados');
+    };
+  } catch (err) {
+    console.error('Sync import error:', err);
+    showToast('Código inválido');
+  }
 }
 
 // Start

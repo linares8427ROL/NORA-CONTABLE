@@ -5,18 +5,18 @@
 }
 
 :root {
-  --bg-primary: #0a0a14;
-  --bg-secondary: #141428;
-  --bg-card: #1c1c38;
-  --accent: #e94560;
-  --accent-hover: #ff6b81;
-  --text-primary: #e8e8f0;
-  --text-secondary: #9999bb;
-  --text-muted: #555577;
-  --success: #2ecc71;
-  --warning: #f39c12;
-  --danger: #e74c3c;
-  --border: #2a2a4a;
+  --bg-primary: #0A2540;
+  --bg-secondary: #0D2F4F;
+  --bg-card: #112D4E;
+  --accent: #00A878;
+  --accent-hover: #00C99A;
+  --text-primary: #F5F7FA;
+  --text-secondary: #B0BEC5;
+  --text-muted: #607D8B;
+  --success: #00A878;
+  --warning: #F0AD4E;
+  --danger: #E85D5D;
+  --border: #1A3A5C;
   --shadow: 0 4px 24px rgba(0,0,0,0.3);
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
   --radius: 12px;
@@ -27,20 +27,20 @@
 }
 
 [data-theme="light"] {
-  --bg-primary: #f0f0f5;
+  --bg-primary: #F5F7FA;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --accent: #e94560;
-  --accent-hover: #c0392b;
-  --text-primary: #1a1a2e;
-  --text-secondary: #555577;
-  --text-muted: #8888aa;
-  --success: #27ae60;
-  --warning: #e67e22;
-  --danger: #c0392b;
-  --border: #e0e0e8;
-  --shadow: 0 4px 24px rgba(0,0,0,0.08);
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --accent: #00A878;
+  --accent-hover: #008F66;
+  --text-primary: #0A2540;
+  --text-secondary: #546E7A;
+  --text-muted: #90A4AE;
+  --success: #00A878;
+  --warning: #F0AD4E;
+  --danger: #E85D5D;
+  --border: #E0E4E8;
+  --shadow: 0 4px 24px rgba(10,37,64,0.08);
+  --shadow-sm: 0 2px 8px rgba(10,37,64,0.06);
 }
 
 body {
@@ -223,7 +223,7 @@ main {
 
 /* Summary Card */
 .summary-card {
-  background: linear-gradient(135deg, var(--accent), #c0392b);
+  background: linear-gradient(135deg, var(--accent), #008F66);
   border-radius: 16px;
   padding: 1.5rem;
   text-align: center;
@@ -288,7 +288,7 @@ main {
 }
 
 [data-theme="light"] .summary-card {
-  background: linear-gradient(135deg, var(--accent), #b03020);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
 }
 
 @keyframes countUp {
@@ -329,7 +329,7 @@ main {
 }
 
 .credit-row .credit-value.low {
-  color: #ffd700;
+  color: var(--warning);
 }
 
 .progress-bar {
@@ -343,13 +343,13 @@ main {
 
 .progress-fill {
   height: 100%;
-  background: #4caf50;
+  background: var(--success);
   border-radius: 4px;
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .progress-fill.danger {
-  background: #ff5252;
+  background: var(--danger);
 }
 
 .due-info {
@@ -430,21 +430,21 @@ main {
 }
 
 .msi-badge {
-  background: rgba(155, 89, 182, 0.2);
-  color: #c39bd3;
-  border: 1px solid rgba(155, 89, 182, 0.4);
+  background: rgba(0, 168, 120, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(0, 168, 120, 0.3);
 }
 
 .paid-badge {
-  background: rgba(46, 204, 113, 0.15);
+  background: rgba(0, 168, 120, 0.15);
   color: var(--success);
-  border: 1px solid rgba(46, 204, 113, 0.4);
+  border: 1px solid rgba(0, 168, 120, 0.3);
 }
 
 .pending-badge {
-  background: rgba(243, 156, 18, 0.15);
+  background: rgba(240, 173, 78, 0.15);
   color: var(--warning);
-  border: 1px solid rgba(243, 156, 18, 0.4);
+  border: 1px solid rgba(240, 173, 78, 0.3);
 }
 
 .expense-notes {
@@ -531,7 +531,7 @@ main {
 
 .msi-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #9b59b6, #e94560);
+  background: linear-gradient(90deg, var(--accent), #008F66);
   border-radius: 3px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -676,7 +676,7 @@ main {
 }
 
 .btn-danger:hover {
-  background: #c0392b;
+  background: var(--danger);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
@@ -1327,7 +1327,7 @@ main {
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%) translateY(20px) scale(0.9);
-  background: var(--accent, #e94560);
+  background: var(--accent, #00A878);
   color: #fff;
   padding: 0.7rem 1.4rem;
   border-radius: 8px;

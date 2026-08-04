@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#e94560">
+  <meta name="theme-color" content="#0A2540">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Nora Contable</title>
@@ -149,7 +149,7 @@
           </div>
           <div class="form-actions">
             <button type="button" id="btnCancelExpense" class="btn-secondary">Cancelar</button>
-            <button type="submit" class="btn-primary">Guardar</button>
+            <button type="button" id="btnSaveExpense" class="btn-primary">Guardar</button>
           </div>
         </form>
       </section>
@@ -207,6 +207,21 @@
           <button id="btnImport" class="btn-secondary btn-full">Importar datos</button>
         </div>
         <div class="settings-group">
+          <h3>Sincronizar dispositivos</h3>
+          <p class="settings-info">Transfiere tus datos entre PC y celular con un código único</p>
+          <button id="btnGenerateCode" class="btn-primary btn-full">Generar código de sincronización</button>
+          <div id="syncCodeBox" style="display:none; margin-top:1rem">
+            <label style="font-size:0.85rem; color:var(--text-secondary)">Copia este código e ingrésalo en tu otro dispositivo</label>
+            <textarea id="syncCode" readonly rows="3" style="width:100%; font-family:monospace; font-size:0.8rem; background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:0.5rem; resize:none"></textarea>
+            <button id="btnCopyCode" class="btn-secondary btn-full" style="margin-top:0.5rem">Copiar código</button>
+          </div>
+          <div class="form-group" style="margin-top:1.5rem">
+            <label for="importCode">Pegar código de otro dispositivo</label>
+            <textarea id="importCode" rows="3" placeholder="Pega aquí el código de sincronización..." style="width:100%; font-family:monospace; font-size:0.8rem; background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border); border-radius:8px; padding:0.5rem; resize:none"></textarea>
+          </div>
+          <button id="btnImportCode" class="btn-secondary btn-full">Importar desde código</button>
+        </div>
+        <div class="settings-group">
           <h3>Tema</h3>
           <div class="form-group">
             <label for="themeSelect">Modo</label>
@@ -255,7 +270,7 @@
           </div>
           <div class="form-group">
             <label for="cardColor">Color</label>
-            <input type="color" id="cardColor" value="#e94560">
+            <input type="color" id="cardColor" value="#0A2540">
           </div>
           <div class="form-actions">
             <button type="button" id="btnCancelCard" class="btn-secondary">Cancelar</button>
