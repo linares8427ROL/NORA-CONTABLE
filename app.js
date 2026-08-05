@@ -152,7 +152,7 @@ function cardStats(cardId) {
     return d >= cycleDates.start && d <= cycleDates.end;
   });
   const normalCycleTotal = cycleExpenses
-    .filter(e => e.type !== 'msi')
+    .filter(e => e.type !== 'msi' && !e.paid)
     .reduce((s, e) => s + parseFloat(e.amount), 0);
   const msiCycleTotal = msiActive.reduce((s, e) => s + msiMonthly(e), 0);
   const totalCycle = normalCycleTotal + msiCycleTotal;
