@@ -44,22 +44,6 @@ async function init() {
     try { setupEventListeners(); } catch (_) {}
   }
 }
-}
-
-async function initAutoSync() {
-  const config = getFirebaseConfig();
-  const room = getSyncRoomId();
-  if (config && room) {
-    const ok = await initFirebase();
-    if (ok) {
-      try {
-        await firebase.auth().signInAnonymously();
-        showSyncConnected(room);
-        startAutoSync(room);
-      } catch (_) {}
-    }
-  }
-}
 
 async function loadTheme() {
   const theme = await db.getSetting('theme') || 'auto';
@@ -926,6 +910,14 @@ function disconnectSimpleSync() {
   showToast('Sincronización detenida');
 }
 
+function showSimpleSyncConnected(room) {
+  document.getElementById('simpleSyncSetup').style.display = 'none';
+  document.getElementById('simpleCodeBox').style.display = 'none';
+  document.getElementById('simpleSyncStatus').style.display = 'block';
+  document.getElementById('btnDisconnectSimpleSync').style.display = 'block';
+  updateSimpleSyncStatus('Conectado · ' + room);
+}
+
 // Auto-sync
 function patchDataToSync() {
   if (getSyncRoomId()) {
@@ -941,239 +933,10 @@ function initSimpleSync() {
     saveSyncRoom(syncCode);
     syncFromSimple();
   }
-}
-
-function initAutoSync() {
   const room = getSyncRoomId();
   if (room) {
     showSimpleSyncConnected(room);
     syncFromSimple();
-  }
-}
-
-// Firebase Auto-Sync
-let firebaseApp = null;
-let firestore = null;
-let syncRoomId = null;
-let unsubscribeSync = null;
-
-function getFirebaseConfig() {
-  try {
-    const saved = localStorage.getItem('nora_firebase_config');
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  return {
-    apiKey: "AIzaSyCZun_Dg679zPd_y0_vLC9c_zF2mglTSnQ",
-    authDomain: "nora-contable.firebaseapp.com",
-    projectId: "nora-contable",
-    storageBucket: "nora-contable.firebasestorage.app",
-    messagingSenderId: "392871416755",
-    appId: "1:392871416755:web:1b5a80812aa26eef4531c6"
-  };
-}
-
-function saveFirebaseConfig(config) {
-  localStorage.setItem('nora_firebase_config', JSON.stringify(config));
-}
-
-function getSyncRoomId() {
-  return localStorage.getItem('nora_sync_room');
-}
-
-function saveSyncRoom(id) {
-  localStorage.setItem('nora_sync_room', id);
-}
-
-function clearSyncRoom() {
-  localStorage.removeItem('nora_sync_room');
-}
-
-async function initFirebase() {
-  const config = getFirebaseConfig();
-  if (!config) return false;
-  try {
-    if (!firebaseApp) {
-      firebaseApp = firebase.initializeApp(config);
-      firestore = firebase.firestore();
-    }
-    await firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-    return true;
-  } catch (err) {
-    console.error('Firebase init error:', err);
-    return false;
-  }
-}
-
-async function setupFirebase() {
-  const apiKey = document.getElementById('fbApiKey').value.trim();
-  const projectId = document.getElementById('fbProject').value.trim();
-  if (!apiKey || !projectId) {
-    showToast('Completa los campos');
-    return;
-  }
-  const config = {
-    apiKey,
-    projectId,
-    authDomain: projectId + '.firebaseapp.com',
-    storageBucket: projectId + '.appspot.com'
-  };
-  saveFirebaseConfig(config);
-  const ok = await initFirebase();
-  if (ok) {
-    document.getElementById('syncConfigForm').style.display = 'none';
-    await firebaseAuth();
-  } else {
-    showToast('Error de conexión');
-  }
-}
-
-async function firebaseAuth() {
-  try {
-    await firebase.auth().signInAnonymously();
-    const room = getSyncRoomId();
-    if (room) {
-      showSyncConnected(room);
-      startAutoSync(room);
-    } else {
-      await createSyncRoom();
-    }
-  } catch (err) {
-    console.error('Auth error:', err);
-    showToast('Error de autenticación');
-  }
-}
-
-async function createSyncRoom() {
-  const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const data = { expenses, cards, cutoffDay, updatedAt: Date.now() };
-  try {
-    await firestore.collection('nora_rooms').doc(roomId).set(data);
-    saveSyncRoom(roomId);
-    showSyncConnected(roomId);
-    startAutoSync(roomId);
-    showToast('Sala creada');
-  } catch (err) {
-    console.error('Create room error:', err);
-    showToast('Error al crear sala');
-  }
-}
-
-async function joinSyncRoom() {
-  const roomId = document.getElementById('joinRoomCode').value.trim().toUpperCase();
-  if (!roomId) { showToast('Ingresa un código'); return; }
-  try {
-    const doc = await firestore.collection('nora_rooms').doc(roomId).get();
-    if (!doc.exists) {
-      showToast('Sala no encontrada');
-      return;
-    }
-    const remote = doc.data();
-    if (!confirm(`Esto reemplazará tus datos actuales con los de la sala. ¿Continuar?`)) return;
-    expenses = (remote.expenses || []).map(normalizeExpense);
-    cards = remote.cards || [];
-    if (remote.cutoffDay) cutoffDay = remote.cutoffDay;
-    const tx = db.db.transaction(['expenses', 'cards', 'settings'], 'readwrite');
-    const expStore = tx.objectStore('expenses');
-    const cardStore = tx.objectStore('cards');
-    const setStore = tx.objectStore('settings');
-    expStore.clear();
-    cardStore.clear();
-    expenses.forEach(e => { const { id, ...rest } = e; expStore.add(rest); });
-    cards.forEach(c => { const { id, ...rest } = c; cardStore.add(rest); });
-    if (remote.cutoffDay) setStore.put({ key: 'cutoffDay', value: remote.cutoffDay });
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-    saveSyncRoom(roomId);
-    showSyncConnected(roomId);
-    startAutoSync(roomId);
-    renderHome();
-    showToast('Sincronizado');
-  } catch (err) {
-    console.error('Join room error:', err);
-    showToast('Error al unirse');
-  }
-}
-
-function showSyncConnected(roomId) {
-  document.getElementById('syncSetup').style.display = 'none';
-  document.getElementById('syncConfigForm').style.display = 'none';
-  document.getElementById('syncConnected').style.display = 'block';
-  document.getElementById('syncRoomCode').value = roomId;
-}
-
-function startAutoSync(roomId) {
-  if (unsubscribeSync) unsubscribeSync();
-  unsubscribeSync = firestore.collection('nora_rooms').doc(roomId)
-    .onSnapshot(doc => {
-      if (!doc.exists) return;
-      const remote = doc.data();
-      const remoteTime = remote.updatedAt || 0;
-      const localExpStr = JSON.stringify(expenses);
-      const remoteExpStr = JSON.stringify(remote.expenses || []);
-      if (remoteTime > Date.now() - 1000) return;
-      if (localExpStr !== remoteExpStr) {
-        expenses = (remote.expenses || []).map(normalizeExpense);
-        cards = remote.cards || [];
-        if (remote.cutoffDay) cutoffDay = remote.cutoffDay;
-        const tx = db.db.transaction(['expenses', 'cards', 'settings'], 'readwrite');
-        tx.objectStore('expenses').clear();
-        tx.objectStore('cards').clear();
-        expenses.forEach(e => { const { id, ...rest } = e; tx.objectStore('expenses').add(rest); });
-        cards.forEach(c => { const { id, ...rest } = c; tx.objectStore('cards').add(rest); });
-        if (remote.cutoffDay) tx.objectStore('settings').put({ key: 'cutoffDay', value: remote.cutoffDay });
-        tx.oncomplete = () => {
-          if (currentScreen === 'home') renderHome();
-          else if (currentScreen === 'history') renderHistory();
-          else if (currentScreen === 'cards') renderCards();
-        };
-      }
-      updateSyncStatus('Sincronizado');
-    }, err => {
-      console.error('Sync listener error:', err);
-      updateSyncStatus('Error de sincronización');
-    });
-}
-
-async function uploadToSync() {
-  const roomId = getSyncRoomId();
-  if (!roomId || !firestore) return;
-  try {
-    await firestore.collection('nora_rooms').doc(roomId).update({
-      expenses,
-      cards,
-      cutoffDay,
-      updatedAt: Date.now()
-    });
-    updateSyncStatus('Subido');
-  } catch (err) {
-    console.error('Upload sync error:', err);
-  }
-}
-
-function updateSyncStatus(msg) {
-  const el = document.getElementById('syncStatus');
-  if (el) el.textContent = msg + ' · ' + new Date().toLocaleTimeString('es-MX');
-}
-
-function disconnectSync() {
-  if (unsubscribeSync) { unsubscribeSync(); unsubscribeSync = null; }
-  clearSyncRoom();
-  document.getElementById('syncConnected').style.display = 'none';
-  document.getElementById('syncSetup').style.display = 'block';
-  showToast('Desconectado');
-}
-
-async function disconnectFirebase() {
-  disconnectSync();
-  try { await firebase.auth().signOut(); } catch (_) {}
-}
-
-function patchDataToSync() {
-  if (getSyncRoomId() && firestore) {
-    clearTimeout(window._syncTimer);
-    window._syncTimer = setTimeout(uploadToSync, 1500);
   }
 }
 
