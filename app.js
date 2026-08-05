@@ -292,10 +292,6 @@ function pendingItemHTML(e) {
       <div style="display:flex;align-items:center;gap:0.5rem">
         <span class="expense-amount">${formatCurrency(parseFloat(e.amount))}</span>
         <button class="btn-pay" onclick="markPurchasePaid(${e.id})">Pagar</button>
-        <div class="expense-actions">
-          <button class="btn-icon" onclick="editExpense(${e.id})"><img src="icons/edit.svg" width="18" height="18"></button>
-          <button class="btn-icon delete" onclick="deleteExpense(${e.id})"><img src="icons/trash.svg" width="18" height="18"></button>
-        </div>
       </div>
     </div>`;
 }
