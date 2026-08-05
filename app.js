@@ -34,6 +34,7 @@ async function init() {
     cutoffDay = (await db.getSetting('cutoffDay')) || 15;
     await loadTheme();
     await loadData();
+    initSimpleSync();
     setupEventListeners();
     renderHome();
   } catch (err) {
@@ -41,6 +42,22 @@ async function init() {
     document.getElementById('homeEmpty').style.display = 'block';
     document.getElementById('homeDashboard').style.display = 'none';
     try { setupEventListeners(); } catch (_) {}
+  }
+}
+}
+
+async function initAutoSync() {
+  const config = getFirebaseConfig();
+  const room = getSyncRoomId();
+  if (config && room) {
+    const ok = await initFirebase();
+    if (ok) {
+      try {
+        await firebase.auth().signInAnonymously();
+        showSyncConnected(room);
+        startAutoSync(room);
+      } catch (_) {}
+    }
   }
 }
 
@@ -569,6 +586,7 @@ async function saveExpense(e) {
     editingExpenseId = null;
     await loadData();
     navigateTo('home');
+    patchDataToSync();
   } catch (err) {
     console.error('Error guardando compra:', err);
     showToast('Error al guardar');
@@ -587,6 +605,7 @@ async function deleteExpense(id) {
     if (currentScreen === 'home') renderHome();
     else if (currentScreen === 'history') renderHistory();
     showToast('Compra eliminada');
+    patchDataToSync();
   }
 }
 
@@ -599,6 +618,7 @@ async function markPurchasePaid(id) {
   await loadData();
   renderHome();
   showToast('Compra marcada como pagada');
+  patchDataToSync();
 }
 
 async function payMsiInstallment(id) {
@@ -612,6 +632,7 @@ async function payMsiInstallment(id) {
   await loadData();
   renderHome();
   showToast(expense.paid ? 'MSI pagado por completo' : 'Mensualidad pagada');
+  patchDataToSync();
 }
 
 // Card CRUD
@@ -657,6 +678,7 @@ async function saveCard(e) {
   closeCardModal();
   renderCards();
   renderHome();
+  patchDataToSync();
 }
 
 function editCard(id) {
@@ -671,6 +693,7 @@ async function deleteCard(id) {
     renderCards();
     renderHome();
     showToast('Tarjeta eliminada');
+    patchDataToSync();
   }
 }
 
@@ -732,14 +755,23 @@ function setupEventListeners() {
   document.getElementById('btnImport').addEventListener('click', importData);
   document.getElementById('btnClearAll').addEventListener('click', clearAllData);
 
-  // Sync
-  document.getElementById('btnGenerateCode').addEventListener('click', generateSyncCode);
-  document.getElementById('btnCopyCode').addEventListener('click', () => {
-    const code = document.getElementById('syncCode');
+  // Simple Sync
+  document.getElementById('btnGenerateSimpleCode').addEventListener('click', () => {
+    generateSimpleSyncCode();
+  });
+  document.getElementById('btnCopySimpleCode').addEventListener('click', () => {
+    const code = document.getElementById('simpleSyncCode');
     code.select();
     navigator.clipboard.writeText(code.value).then(() => showToast('Código copiado'));
   });
-  document.getElementById('btnImportCode').addEventListener('click', importFromCode);
+  document.getElementById('btnJoinSimpleCode').addEventListener('click', () => {
+    const code = document.getElementById('joinSimpleCode').value.trim().toUpperCase();
+    if (!code) { showToast('Ingresa un código primero'); return; }
+    joinSimpleSync(code);
+  });
+  document.getElementById('btnDisconnectSimpleSync').addEventListener('click', () => {
+    disconnectSimpleSync();
+  });
 }
 
 // Register SW
@@ -787,54 +819,361 @@ async function clearAllData() {
   cards = [];
   renderHome();
   showToast('Datos eliminados');
+  patchDataToSync();
 }
 
-// Sync via code
-function generateSyncCode() {
-  const data = { expenses, cards, cutoffDay, syncDate: new Date().toISOString() };
-  const json = JSON.stringify(data);
-  const code = btoa(unescape(encodeURIComponent(json)));
-  document.getElementById('syncCode').value = code;
-  document.getElementById('syncCodeBox').style.display = 'block';
-  showToast('Código generado');
+// Simple Local Sync
+let syncRoomId = null;
+
+function getSyncRoomId() {
+  return localStorage.getItem('nora_simple_sync');
 }
 
-function importFromCode() {
-  const code = document.getElementById('importCode').value.trim();
-  if (!code) { showToast('Pega un código primero'); return; }
+function saveSyncRoom(id) {
+  localStorage.setItem('nora_simple_sync', id);
+}
+
+function clearSyncRoom() {
+  localStorage.removeItem('nora_simple_sync');
+}
+
+function generateSimpleSyncCode() {
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+  saveSyncRoom(code);
+  document.getElementById('simpleSyncCode').value = code;
+  document.getElementById('simpleCodeBox').style.display = 'block';
+  showToast('Código de sincronización generado');
+}
+
+async function joinSimpleSync(code) {
+  if (!code) { showToast('Ingresa un código primero'); return false; }
   try {
-    const json = decodeURIComponent(escape(atob(code)));
-    const data = JSON.parse(json);
-    if (!data.expenses && !data.cards) {
-      showToast('Código no válido');
-      return;
+    const url = new URL(window.location.href);
+    const roomParam = url.searchParams.get('sync');
+    if (roomParam) {
+      saveSyncRoom(roomParam);
+    } else {
+      saveSyncRoom(code);
     }
-    if (!confirm('Esto reemplazará todos los datos actuales. ¿Continuar?')) return;
+    await loadData();
+    renderHome();
+    showToast('Sincronizado con éxito');
+    return true;
+  } catch (err) {
+    console.error('Join simple sync error:', err);
+    showToast('Error al unirse');
+    return false;
+  }
+}
+
+async function syncToSimple() {
+  const room = getSyncRoomId();
+  if (!room) return;
+  try {
+    localStorage.setItem(`nora_sync_${room}`, JSON.stringify({
+      expenses,
+      cards,
+      cutoffDay,
+      updatedAt: Date.now()
+    }));
+    updateSimpleSyncStatus('Sincronizado');
+  } catch (err) {
+    console.error('Upload simple sync error:', err);
+  }
+}
+
+async function syncFromSimple() {
+  const room = getSyncRoomId();
+  if (!room) return;
+  try {
+    const saved = localStorage.getItem(`nora_sync_${room}`);
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    if (!data.updatedAt || data.updatedAt < Date.now() - 1000) return;
     expenses = (data.expenses || []).map(normalizeExpense);
     cards = data.cards || [];
     if (data.cutoffDay) cutoffDay = data.cutoffDay;
+    const tx = db.db.transaction(['expenses', 'cards', 'settings'], 'readwrite');
+    tx.objectStore('expenses').clear();
+    tx.objectStore('cards').clear();
+    expenses.forEach(e => { const { id, ...rest } = e; tx.objectStore('expenses').add(rest); });
+    cards.forEach(c => { const { id, ...rest } = c; tx.objectStore('cards').add(rest); });
+    if (data.cutoffDay) tx.objectStore('settings').put({ key: 'cutoffDay', value: data.cutoffDay });
+    tx.oncomplete = () => {
+      if (currentScreen === 'home') renderHome();
+      else if (currentScreen === 'history') renderHistory();
+      else if (currentScreen === 'cards') renderCards();
+    };
+    updateSimpleSyncStatus('Sincronizado');
+  } catch (err) {
+    console.error('Download simple sync error:', err);
+    updateSimpleSyncStatus('Error de descarga');
+  }
+}
+
+function updateSimpleSyncStatus(msg) {
+  const el = document.getElementById('simpleSyncStatus');
+  if (el) {
+    el.textContent = msg + ' · ' + new Date().toLocaleTimeString('es-MX');
+  }
+}
+
+function disconnectSimpleSync() {
+  clearSyncRoom();
+  document.getElementById('simpleCodeBox').style.display = 'none';
+  document.getElementById('simpleSyncSetup').style.display = 'block';
+  updateSimpleSyncStatus('');
+  showToast('Sincronización detenida');
+}
+
+// Auto-sync
+function patchDataToSync() {
+  if (getSyncRoomId()) {
+    clearTimeout(window._simpleSyncTimer);
+    window._simpleSyncTimer = setTimeout(syncToSimple, 1500);
+  }
+}
+
+function initSimpleSync() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const syncCode = urlParams.get('sync');
+  if (syncCode) {
+    saveSyncRoom(syncCode);
+    syncFromSimple();
+  }
+}
+
+function initAutoSync() {
+  const room = getSyncRoomId();
+  if (room) {
+    showSimpleSyncConnected(room);
+    syncFromSimple();
+  }
+}
+
+// Firebase Auto-Sync
+let firebaseApp = null;
+let firestore = null;
+let syncRoomId = null;
+let unsubscribeSync = null;
+
+function getFirebaseConfig() {
+  try {
+    const saved = localStorage.getItem('nora_firebase_config');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return {
+    apiKey: "AIzaSyCZun_Dg679zPd_y0_vLC9c_zF2mglTSnQ",
+    authDomain: "nora-contable.firebaseapp.com",
+    projectId: "nora-contable",
+    storageBucket: "nora-contable.firebasestorage.app",
+    messagingSenderId: "392871416755",
+    appId: "1:392871416755:web:1b5a80812aa26eef4531c6"
+  };
+}
+
+function saveFirebaseConfig(config) {
+  localStorage.setItem('nora_firebase_config', JSON.stringify(config));
+}
+
+function getSyncRoomId() {
+  return localStorage.getItem('nora_sync_room');
+}
+
+function saveSyncRoom(id) {
+  localStorage.setItem('nora_sync_room', id);
+}
+
+function clearSyncRoom() {
+  localStorage.removeItem('nora_sync_room');
+}
+
+async function initFirebase() {
+  const config = getFirebaseConfig();
+  if (!config) return false;
+  try {
+    if (!firebaseApp) {
+      firebaseApp = firebase.initializeApp(config);
+      firestore = firebase.firestore();
+    }
+    await firestore.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    return true;
+  } catch (err) {
+    console.error('Firebase init error:', err);
+    return false;
+  }
+}
+
+async function setupFirebase() {
+  const apiKey = document.getElementById('fbApiKey').value.trim();
+  const projectId = document.getElementById('fbProject').value.trim();
+  if (!apiKey || !projectId) {
+    showToast('Completa los campos');
+    return;
+  }
+  const config = {
+    apiKey,
+    projectId,
+    authDomain: projectId + '.firebaseapp.com',
+    storageBucket: projectId + '.appspot.com'
+  };
+  saveFirebaseConfig(config);
+  const ok = await initFirebase();
+  if (ok) {
+    document.getElementById('syncConfigForm').style.display = 'none';
+    await firebaseAuth();
+  } else {
+    showToast('Error de conexión');
+  }
+}
+
+async function firebaseAuth() {
+  try {
+    await firebase.auth().signInAnonymously();
+    const room = getSyncRoomId();
+    if (room) {
+      showSyncConnected(room);
+      startAutoSync(room);
+    } else {
+      await createSyncRoom();
+    }
+  } catch (err) {
+    console.error('Auth error:', err);
+    showToast('Error de autenticación');
+  }
+}
+
+async function createSyncRoom() {
+  const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const data = { expenses, cards, cutoffDay, updatedAt: Date.now() };
+  try {
+    await firestore.collection('nora_rooms').doc(roomId).set(data);
+    saveSyncRoom(roomId);
+    showSyncConnected(roomId);
+    startAutoSync(roomId);
+    showToast('Sala creada');
+  } catch (err) {
+    console.error('Create room error:', err);
+    showToast('Error al crear sala');
+  }
+}
+
+async function joinSyncRoom() {
+  const roomId = document.getElementById('joinRoomCode').value.trim().toUpperCase();
+  if (!roomId) { showToast('Ingresa un código'); return; }
+  try {
+    const doc = await firestore.collection('nora_rooms').doc(roomId).get();
+    if (!doc.exists) {
+      showToast('Sala no encontrada');
+      return;
+    }
+    const remote = doc.data();
+    if (!confirm(`Esto reemplazará tus datos actuales con los de la sala. ¿Continuar?`)) return;
+    expenses = (remote.expenses || []).map(normalizeExpense);
+    cards = remote.cards || [];
+    if (remote.cutoffDay) cutoffDay = remote.cutoffDay;
     const tx = db.db.transaction(['expenses', 'cards', 'settings'], 'readwrite');
     const expStore = tx.objectStore('expenses');
     const cardStore = tx.objectStore('cards');
     const setStore = tx.objectStore('settings');
     expStore.clear();
     cardStore.clear();
-    expenses.forEach(e => {
-      const { id, ...rest } = e;
-      expStore.add(rest);
+    expenses.forEach(e => { const { id, ...rest } = e; expStore.add(rest); });
+    cards.forEach(c => { const { id, ...rest } = c; cardStore.add(rest); });
+    if (remote.cutoffDay) setStore.put({ key: 'cutoffDay', value: remote.cutoffDay });
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
     });
-    cards.forEach(c => {
-      const { id, ...rest } = c;
-      cardStore.add(rest);
-    });
-    setStore.put({ key: 'cutoffDay', value: cutoffDay });
-    tx.oncomplete = () => {
-      renderHome();
-      showToast('Datos sincronizados');
-    };
+    saveSyncRoom(roomId);
+    showSyncConnected(roomId);
+    startAutoSync(roomId);
+    renderHome();
+    showToast('Sincronizado');
   } catch (err) {
-    console.error('Sync import error:', err);
-    showToast('Código inválido');
+    console.error('Join room error:', err);
+    showToast('Error al unirse');
+  }
+}
+
+function showSyncConnected(roomId) {
+  document.getElementById('syncSetup').style.display = 'none';
+  document.getElementById('syncConfigForm').style.display = 'none';
+  document.getElementById('syncConnected').style.display = 'block';
+  document.getElementById('syncRoomCode').value = roomId;
+}
+
+function startAutoSync(roomId) {
+  if (unsubscribeSync) unsubscribeSync();
+  unsubscribeSync = firestore.collection('nora_rooms').doc(roomId)
+    .onSnapshot(doc => {
+      if (!doc.exists) return;
+      const remote = doc.data();
+      const remoteTime = remote.updatedAt || 0;
+      const localExpStr = JSON.stringify(expenses);
+      const remoteExpStr = JSON.stringify(remote.expenses || []);
+      if (remoteTime > Date.now() - 1000) return;
+      if (localExpStr !== remoteExpStr) {
+        expenses = (remote.expenses || []).map(normalizeExpense);
+        cards = remote.cards || [];
+        if (remote.cutoffDay) cutoffDay = remote.cutoffDay;
+        const tx = db.db.transaction(['expenses', 'cards', 'settings'], 'readwrite');
+        tx.objectStore('expenses').clear();
+        tx.objectStore('cards').clear();
+        expenses.forEach(e => { const { id, ...rest } = e; tx.objectStore('expenses').add(rest); });
+        cards.forEach(c => { const { id, ...rest } = c; tx.objectStore('cards').add(rest); });
+        if (remote.cutoffDay) tx.objectStore('settings').put({ key: 'cutoffDay', value: remote.cutoffDay });
+        tx.oncomplete = () => {
+          if (currentScreen === 'home') renderHome();
+          else if (currentScreen === 'history') renderHistory();
+          else if (currentScreen === 'cards') renderCards();
+        };
+      }
+      updateSyncStatus('Sincronizado');
+    }, err => {
+      console.error('Sync listener error:', err);
+      updateSyncStatus('Error de sincronización');
+    });
+}
+
+async function uploadToSync() {
+  const roomId = getSyncRoomId();
+  if (!roomId || !firestore) return;
+  try {
+    await firestore.collection('nora_rooms').doc(roomId).update({
+      expenses,
+      cards,
+      cutoffDay,
+      updatedAt: Date.now()
+    });
+    updateSyncStatus('Subido');
+  } catch (err) {
+    console.error('Upload sync error:', err);
+  }
+}
+
+function updateSyncStatus(msg) {
+  const el = document.getElementById('syncStatus');
+  if (el) el.textContent = msg + ' · ' + new Date().toLocaleTimeString('es-MX');
+}
+
+function disconnectSync() {
+  if (unsubscribeSync) { unsubscribeSync(); unsubscribeSync = null; }
+  clearSyncRoom();
+  document.getElementById('syncConnected').style.display = 'none';
+  document.getElementById('syncSetup').style.display = 'block';
+  showToast('Desconectado');
+}
+
+async function disconnectFirebase() {
+  disconnectSync();
+  try { await firebase.auth().signOut(); } catch (_) {}
+}
+
+function patchDataToSync() {
+  if (getSyncRoomId() && firestore) {
+    clearTimeout(window._syncTimer);
+    window._syncTimer = setTimeout(uploadToSync, 1500);
   }
 }
 
